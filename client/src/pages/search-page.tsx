@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,16 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
+
+  // Get search query from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    if (q) {
+      setSearchQuery(q);
+      setDebouncedQuery(q);
+    }
+  }, []);
 
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ["/api/search", debouncedQuery],
@@ -28,7 +38,7 @@ export default function SearchPage() {
     <Layout>
       <div className="p-4 space-y-4">
         <div className="sticky top-0 bg-background pt-2 pb-4 space-y-4">
-          <h1 className="text-2xl font-semibold">Search Movies, Shows & Anime</h1>
+          <h1 className="text-2xl font-semibold">Search Results</h1>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -44,7 +54,7 @@ export default function SearchPage() {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
-              {searchResults?.Search?.length || 0} results
+              {searchResults?.Search?.length || 0} results for "{searchQuery}"
             </span>
             <Button variant="ghost" size="sm" className="text-sm">
               Sort by Relevance

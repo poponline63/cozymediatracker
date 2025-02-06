@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,13 +6,18 @@ import { useAuth } from "@/hooks/use-auth";
 
 interface LayoutProps {
   children: React.ReactNode;
-  showSearch?: boolean;
-  onSearch?: (query: string) => void;
-  searchValue?: string;
 }
 
-export default function Layout({ children, showSearch, onSearch, searchValue }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
   const { logoutMutation } = useAuth();
+  const [location, navigate] = useLocation();
+  const isSearchPage = location === "/search";
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,33 +30,29 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
               </h1>
             </Link>
 
-            <nav className="flex items-center gap-2 mr-4">
+            {!isSearchPage && (
+              <div className="flex-1 max-w-xl relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search movies, shows, and anime..."
+                  className="w-full pl-10"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch((e.target as HTMLInputElement).value);
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            <nav className="flex items-center gap-2">
               <Link href="/friends">
                 <Button variant="ghost" size="sm">
                   Friends
                 </Button>
               </Link>
-              <Link href="/profile">
-                <Button variant="ghost" size="sm">
-                  Watchlist
-                </Button>
-              </Link>
             </nav>
-
-            {showSearch && (
-              <div className="flex-1 max-w-xl">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search movies, shows, and anime..."
-                    value={searchValue}
-                    onChange={(e) => onSearch?.(e.target.value)}
-                    className="w-full pl-10"
-                  />
-                </div>
-              </div>
-            )}
 
             <div className="ml-auto flex items-center gap-2">
               <Button

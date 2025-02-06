@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { User, Search, Users } from "lucide-react";
+import { User, Search, Users, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function TabNavigation() {
@@ -7,26 +7,31 @@ export default function TabNavigation() {
 
   const tabs = [
     { icon: User, label: "Profile", href: "/" },
-    { icon: Search, label: "Search Movies", href: "/search" },
+    { icon: Search, label: "Search", href: "/search" },
+    { icon: List, label: "Watchlist", href: "/profile" },
     { icon: Users, label: "Friends", href: "/friends" },
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-1 p-4">
-      {tabs.map(({ icon: Icon, label, href }) => (
-        <Link key={href} href={href}>
-          <button
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center py-3 px-2 gap-1 w-full",
-              "bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors",
-              location === href ? "bg-blue-600" : "bg-blue-500"
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            <span className="text-sm font-medium">{label}</span>
-          </button>
-        </Link>
-      ))}
+    <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border">
+      <div className="grid grid-cols-4 gap-1 p-4 container mx-auto">
+        {tabs.map(({ icon: Icon, label, href }) => (
+          <Link key={href} href={href}>
+            <button
+              className={cn(
+                "flex flex-col items-center justify-center py-2 px-2 gap-1 w-full rounded-lg transition-colors",
+                "hover:bg-accent hover:text-accent-foreground",
+                location === href 
+                  ? "bg-primary/10 text-primary" 
+                  : "text-muted-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-xs font-medium">{label}</span>
+            </button>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
