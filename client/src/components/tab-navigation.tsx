@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { User, Search, Users, List } from "lucide-react";
+import { User, Search, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -14,7 +14,7 @@ export default function TabNavigation() {
 
   const tabs = [
     { icon: User, label: "Profile", href: "/" },
-    { icon: List, label: "Watchlist", href: "/profile" },
+    { icon: Search, label: "Search", href: "/search" },
     { icon: Users, label: "Friends", href: "/friends" },
   ];
 
@@ -28,7 +28,7 @@ export default function TabNavigation() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               type="text"
-              placeholder="Search movies, shows, and anime..."
+              placeholder="Search movies, shows, or anime..."
               className="w-full pl-10 bg-secondary"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
