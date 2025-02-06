@@ -175,29 +175,24 @@ export default function MediaDetails({
                         key={episode.imdbID}
                         className="p-4 rounded-lg border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                       >
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-start gap-4">
-                            <div>
-                              <h4 className="font-medium flex items-baseline gap-2">
-                                <span className="text-lg">
-                                  {episode.Episode}.
-                                </span>
-                                <span>{episode.Title}</span>
-                              </h4>
-                              {episode.imdbRating && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                  <span>{episode.imdbRating}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground shrink-0">
-                              {episode.Released}
-                            </div>
+                        <div className="flex justify-between items-center gap-4">
+                          <div>
+                            <h4 className="font-medium flex items-baseline gap-2">
+                              <span className="text-lg">
+                                {episode.Episode}.
+                              </span>
+                              <span>{episode.Title}</span>
+                            </h4>
+                            {episode.imdbRating && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span>{episode.imdbRating}</span>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {episode.Plot}
-                          </p>
+                          <div className="text-sm text-muted-foreground shrink-0">
+                            {episode.Released}
+                          </div>
                         </div>
                       </div>
                     ))}
