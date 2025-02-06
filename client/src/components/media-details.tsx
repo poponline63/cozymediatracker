@@ -21,6 +21,13 @@ export default function MediaDetails({
 }: MediaDetailsProps) {
   const { data: details, isLoading } = useQuery({
     queryKey: ["/api/media", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/media/${mediaId}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch media details');
+      }
+      return res.json();
+    },
     enabled: isOpen && !!mediaId,
   });
 
@@ -94,8 +101,6 @@ export default function MediaDetails({
                 </div>
               </div>
 
-              {/* Trailer section would go here - requires additional API */}
-              
               {details.Type === "series" && details.Episodes && (
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold">Episodes</h3>

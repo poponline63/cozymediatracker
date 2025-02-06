@@ -56,22 +56,35 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.get("/api/media/:id", async (req, res) => {
-    // Fetch basic details
-    const result = await fetch(
-      `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&plot=full`,
-    );
-    const data = await result.json();
-
-    // If it's a series, fetch episode information
-    if (data.Type === "series") {
-      const seasonsResult = await fetch(
-        `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&Season=1`,
+    try {
+      // Fetch basic details
+      const result = await fetch(
+        `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&plot=full`,
       );
-      const seasonsData = await seasonsResult.json();
-      data.Episodes = seasonsData.Episodes;
-    }
 
-    res.json(data);
+      if (!result.ok) {
+        throw new Error('Failed to fetch from OMDB API');
+      }
+
+      const data = await result.json();
+
+      // If it's a series, fetch episode information
+      if (data.Type === "series") {
+        const seasonsResult = await fetch(
+          `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&Season=1`,
+        );
+
+        if (seasonsResult.ok) {
+          const seasonsData = await seasonsResult.json();
+          data.Episodes = seasonsData.Episodes;
+        }
+      }
+
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching media details:', error);
+      res.status(500).json({ error: 'Failed to fetch media details' });
+    }
   });
 
   const httpServer = createServer(app);
