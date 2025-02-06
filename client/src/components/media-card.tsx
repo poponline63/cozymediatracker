@@ -110,10 +110,10 @@ export default function MediaCard({
                   status: "plan_to_watch",
                 })
               }
-              disabled={addMutation.isPending}
+              disabled={addMutation.isPending || watchlistId !== undefined}
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add to Watchlist
+              {watchlistId ? 'In Watchlist' : 'Add to Watchlist'}
             </Button>
           )}
 

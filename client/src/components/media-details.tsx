@@ -104,14 +104,32 @@ export default function MediaDetails({
                 />
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{details.Plot}</p>
-                  <Button
-                    onClick={() => addToWatchlistMutation.mutate()}
-                    disabled={addToWatchlistMutation.isPending}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add to Watchlist
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => addToWatchlistMutation.mutate()}
+                      disabled={addToWatchlistMutation.isPending}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add to Watchlist
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => 
+                        addToWatchlistMutation.mutate({
+                          mediaId,
+                          title: details?.Title,
+                          type: details?.Type,
+                          posterUrl: details?.Poster,
+                          status: "watching",
+                        })
+                      }
+                      disabled={addToWatchlistMutation.isPending}
+                      className="w-full"
+                    >
+                      Start Watching
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <h4 className="font-semibold">Director</h4>
