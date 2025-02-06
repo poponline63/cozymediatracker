@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -70,7 +69,8 @@ export default function WatchProgress({
     },
   });
 
-  const handleUpdate = () => {
+  // Auto-update when values change
+  useEffect(() => {
     if (type === "series") {
       updateMutation.mutate({
         id: watchlistId,
@@ -81,7 +81,7 @@ export default function WatchProgress({
     } else {
       updateMutation.mutate({ id: watchlistId, progress });
     }
-  };
+  }, [progress, currentSeason, currentEpisode]);
 
   // For series, calculate progress based on current episode/total episodes
   useEffect(() => {
@@ -117,23 +117,15 @@ export default function WatchProgress({
               <SelectValue>Episode {currentEpisode}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {details?.Episodes?.map((_, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>
-                  Episode {i + 1}
+              {details?.Episodes?.map((episode: { Episode: number }) => (
+                <SelectItem key={episode.Episode} value={episode.Episode.toString()}>
+                  Episode {episode.Episode}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <Progress value={progress} className="h-2" />
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleUpdate}
-          disabled={updateMutation.isPending}
-        >
-          Update Progress
-        </Button>
       </div>
     );
   }
@@ -152,14 +144,6 @@ export default function WatchProgress({
         <span className="text-muted-foreground self-center">%</span>
       </div>
       <Progress value={progress} className="h-2" />
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleUpdate}
-        disabled={updateMutation.isPending}
-      >
-        Update Progress
-      </Button>
     </div>
   );
 }
