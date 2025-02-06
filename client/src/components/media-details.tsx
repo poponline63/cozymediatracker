@@ -18,11 +18,17 @@ import { Loader2, Star, Plus } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface MediaDetailsProps {
   mediaId: string;
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface CustomList {
+  id: number;
+  name: string;
 }
 
 export default function MediaDetails({
@@ -66,6 +72,44 @@ export default function MediaDetails({
     },
   });
 
+  const { data: customLists } = useQuery<CustomList[]>({
+    queryKey: ["/api/custom-lists"],
+  });
+
+  const rateMutation = useMutation({
+    mutationFn: async (rating: number) => {
+      const res = await apiRequest("PATCH", `/api/watchlist/${mediaId}`, {
+        rating,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Rating updated",
+        description: "Your rating has been saved",
+      });
+    },
+  });
+
+  const addToListMutation = useMutation({
+    mutationFn: async (listId: number) => {
+      const res = await apiRequest("POST", `/api/custom-lists/${listId}/items`, {
+        mediaId,
+        title: details?.Title,
+        posterUrl: details?.Poster,
+      });
+      return res.json();
+    },
+    onSuccess: (_, listId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/custom-lists", listId] });
+      toast({
+        title: "Added to list",
+        description: "The item has been added to your list",
+      });
+    },
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl h-[80vh]">
@@ -105,30 +149,61 @@ export default function MediaDetails({
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{details.Plot}</p>
                   <div className="space-y-2">
-                    <Button
-                      onClick={() => addToWatchlistMutation.mutate()}
-                      disabled={addToWatchlistMutation.isPending}
-                      className="w-full"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add to Watchlist
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => 
-                        addToWatchlistMutation.mutate({
-                          mediaId,
-                          title: details?.Title,
-                          type: details?.Type,
-                          posterUrl: details?.Poster,
-                          status: "watching",
-                        })
-                      }
-                      disabled={addToWatchlistMutation.isPending}
-                      className="w-full"
-                    >
-                      Start Watching
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => addToWatchlistMutation.mutate()}
+                        disabled={addToWatchlistMutation.isPending}
+                        className="flex-1"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add to Watchlist
+                      </Button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline">
+                            <Star className="h-4 w-4 mr-2" />
+                            Rate
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <DropdownMenuItem
+                              key={rating}
+                              onClick={() => rateMutation.mutate(rating)}
+                            >
+                              <div className="flex items-center">
+                                {Array.from({ length: rating }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className="h-4 w-4 text-yellow-400 fill-yellow-400"
+                                  />
+                                ))}
+                                <span className="ml-2">{rating} stars</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" className="w-full">
+                          Add to List
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {customLists?.map((list) => (
+                          <DropdownMenuItem
+                            key={list.id}
+                            onClick={() => addToListMutation.mutate(list.id)}
+                          >
+                            {list.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

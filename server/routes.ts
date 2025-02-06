@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertWatchlistSchema } from "@shared/schema";
+import { insertCustomListSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Watchlist routes
@@ -104,6 +105,80 @@ export function registerRoutes(app: Express): Server {
       console.error('Error fetching media details:', error);
       res.status(500).json({ error: 'Failed to fetch media details' });
     }
+  });
+
+  // Custom Lists routes
+  app.get("/api/custom-lists", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const lists = await storage.getCustomLists(req.user!.id);
+    res.json(lists);
+  });
+
+  app.post("/api/custom-lists", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const parsed = insertCustomListSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+
+    const list = await storage.createCustomList(req.user!.id, parsed.data);
+    res.status(201).json(list);
+  });
+
+  app.get("/api/custom-lists/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const list = await storage.getCustomList(parseInt(req.params.id));
+    if (!list) return res.sendStatus(404);
+    if (list.userId !== req.user!.id && !list.isPublic) {
+      return res.sendStatus(403);
+    }
+    res.json(list);
+  });
+
+  app.post("/api/custom-lists/:id/items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const listId = parseInt(req.params.id);
+    const { mediaId, title, posterUrl } = req.body;
+
+    const list = await storage.getCustomList(listId);
+    if (!list) return res.sendStatus(404);
+    if (list.userId !== req.user!.id) return res.sendStatus(403);
+
+    const item = await storage.addToCustomList(listId, {
+      mediaId,
+      title,
+      posterUrl,
+    });
+    res.status(201).json(item);
+  });
+
+  app.delete("/api/custom-lists/:listId/items/:itemId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const listId = parseInt(req.params.listId);
+    const itemId = parseInt(req.params.itemId);
+
+    const list = await storage.getCustomList(listId);
+    if (!list) return res.sendStatus(404);
+    if (list.userId !== req.user!.id) return res.sendStatus(403);
+
+    await storage.removeFromCustomList(itemId);
+    res.sendStatus(204);
+  });
+
+  // Update rating endpoint
+  app.patch("/api/watchlist/:id/rating", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { rating } = req.body;
+    if (typeof rating !== "number" || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Invalid rating" });
+    }
+
+    const item = await storage.updateWatchlistRating(
+      parseInt(req.params.id),
+      rating
+    );
+    res.json(item);
   });
 
   const httpServer = createServer(app);
