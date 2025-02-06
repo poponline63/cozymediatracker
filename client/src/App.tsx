@@ -9,8 +9,13 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import TabNavigation from "@/components/tab-navigation";
+import { useLocation } from "wouter";
 
 function Router() {
+  const [location] = useLocation();
+  const showNav = location !== "/auth";
+
   return (
     <div className="min-h-screen bg-background">
       <Switch>
@@ -20,6 +25,7 @@ function Router() {
         <ProtectedRoute path="/friends" component={FriendsPage} />
         <Route component={NotFound} />
       </Switch>
+      {showNav && <TabNavigation />}
     </div>
   );
 }

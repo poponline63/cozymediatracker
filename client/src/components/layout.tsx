@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import TabNavigation from "./tab-navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,6 +12,8 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, showSearch, onSearch, searchValue }: LayoutProps) {
+  const { logoutMutation } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
@@ -51,9 +53,17 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
               </div>
             )}
 
-            <Button variant="ghost" size="icon" className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                Logout
+              </Button>
               <UserCircle className="h-5 w-5" />
-            </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -61,8 +71,6 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
-
-      <TabNavigation />
     </div>
   );
 }
