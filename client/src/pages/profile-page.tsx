@@ -3,11 +3,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist } from "@shared/schema";
-import { BarChart3, User } from "lucide-react";
+import { BarChart3, User, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import MediaDetails from "@/components/media-details";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function ProfilePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
@@ -17,6 +24,11 @@ export default function ProfilePage() {
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const watching = watchlist?.filter((item) => item.status === "watching") || [];
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
+
+  // Statistics queries
+  const { data: stats } = useQuery({
+    queryKey: ["/api/statistics"],
+  });
 
   // Calculate completion statistics
   const totalItems = watching.length;
@@ -86,44 +98,58 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-8">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {chartData.map(({ name, value, color }) => (
-                      <div key={name} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                          <span className="text-sm font-medium">{name}</span>
-                        </div>
-                        <p className="text-2xl font-bold">{value}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {Math.round((value / totalItems) * 100)}% of total
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Total Watch Time</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Math.floor(stats?.totalWatchtime / 60)}h {stats?.totalWatchtime % 60}m
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Across {stats?.totalItems || 0} items
+                    </p>
+                  </CardContent>
+                </Card>
 
-                <div className="h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={2}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value} items`} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="grid grid-cols-2 gap-4">
+                  {chartData.map(({ name, value, color }) => (
+                    <div key={name} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="text-sm font-medium">{name}</span>
+                      </div>
+                      <p className="text-2xl font-bold">{value}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {Math.round((value / totalItems) * 100)}% of total
+                      </p>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} items`} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
