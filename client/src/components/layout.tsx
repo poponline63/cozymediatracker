@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import TabNavigation from "./tab-navigation";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -60,6 +61,8 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+
+      <TabNavigation />
     </div>
   );
 }
