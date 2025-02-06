@@ -3,8 +3,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist } from "@shared/schema";
-import { Progress } from "@/components/ui/progress";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, User } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 export default function ProfilePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
@@ -16,20 +16,25 @@ export default function ProfilePage() {
 
   // Calculate completion statistics
   const totalItems = watching.length;
-  const itemsWithProgress = watching.filter(item => item.progress && item.progress > 0).length;
   const completedItems = watching.filter(item => item.progress === 100).length;
-  const inProgressItems = itemsWithProgress - completedItems;
+  const inProgressItems = watching.filter(item => item.progress && item.progress > 0 && item.progress < 100).length;
+  const notStartedItems = totalItems - completedItems - inProgressItems;
 
-  const completionPercentage = totalItems > 0 ? (itemsWithProgress / totalItems) * 100 : 0;
-  const completedPercentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
-  const inProgressPercentage = totalItems > 0 ? (inProgressItems / totalItems) * 100 : 0;
+  const chartData = [
+    { name: "Completed", value: completedItems, color: "#22c55e" },
+    { name: "In Progress", value: inProgressItems, color: "#3b82f6" },
+    { name: "Not Started", value: notStartedItems, color: "#6b7280" },
+  ].filter(item => item.value > 0);
 
   return (
     <Layout>
       <div className="max-w-screen-2xl mx-auto">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold">My Watchlist</h2>
-          <p className="text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <User className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-semibold">My Profile</h1>
+          </div>
+          <p className="text-muted-foreground mt-2">
             {watchlist?.length || 0} items in watchlist
           </p>
         </div>
@@ -38,34 +43,47 @@ export default function ProfilePage() {
           <div className="mb-8 p-6 border rounded-lg bg-card">
             <div className="flex items-center gap-3">
               <BarChart3 className="h-8 w-8 text-primary" />
-              <h3 className="text-lg font-semibold">Watch Progress</h3>
+              <h2 className="text-lg font-semibold">Your Media Progress</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Overall Progress</h4>
-                <Progress value={completionPercentage} className="h-2" />
-                <p className="text-sm text-muted-foreground">
-                  {itemsWithProgress} out of {totalItems} shows/movies started
-                </p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {chartData.map(({ name, value, color }) => (
+                    <div key={name} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="text-sm font-medium">{name}</span>
+                      </div>
+                      <p className="text-2xl font-bold">{value}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {Math.round((value / totalItems) * 100)}% of total
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">Completed</span>
-                    <span className="text-muted-foreground">{completedItems} items</span>
-                  </div>
-                  <Progress value={completedPercentage} className="h-2 bg-secondary" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">In Progress</span>
-                    <span className="text-muted-foreground">{inProgressItems} items</span>
-                  </div>
-                  <Progress value={inProgressPercentage} className="h-2 bg-secondary" />
-                </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
@@ -74,7 +92,7 @@ export default function ProfilePage() {
         <Tabs defaultValue="watching" className="space-y-4">
           <TabsList>
             <TabsTrigger value="watching">
-              Watching ({watching.length})
+              Currently Watching ({watching.length})
             </TabsTrigger>
             <TabsTrigger value="plan_to_watch">
               Plan to Watch ({planToWatch.length})

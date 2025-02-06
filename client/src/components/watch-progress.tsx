@@ -119,7 +119,7 @@ export default function WatchProgress({
               <SelectValue>Episode {currentEpisode}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {details?.Episodes?.map((episode: { Episode: number }) => (
+              {details?.Episodes?.map((episode: any) => (
                 <SelectItem key={episode.Episode} value={episode.Episode.toString()}>
                   Episode {episode.Episode}
                 </SelectItem>
@@ -134,36 +134,27 @@ export default function WatchProgress({
 
   return (
     <div className="space-y-2 mt-2">
-      {progress < 100 ? (
-        <>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(parseInt(e.target.value) || 0)}
-              className="w-20"
-            />
-            <span className="text-muted-foreground self-center">%</span>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setProgress(100)}
-              className="ml-auto"
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Mark Complete
-            </Button>
-          </div>
-          <Progress value={progress} className="h-2" />
-        </>
-      ) : (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Check className="h-4 w-4 text-green-500" />
-          Completed
-        </div>
-      )}
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={progress}
+          onChange={(e) => setProgress(parseInt(e.target.value) || 0)}
+          className="w-20"
+        />
+        <span className="text-muted-foreground self-center">%</span>
+        <Button 
+          variant={progress === 100 ? "default" : "outline"}
+          size="sm"
+          onClick={() => setProgress(progress === 100 ? 0 : 100)}
+          className="ml-auto"
+        >
+          <Check className={`h-4 w-4 mr-2 ${progress === 100 ? "text-primary-foreground" : ""}`} />
+          {progress === 100 ? "Completed" : "Mark Complete"}
+        </Button>
+      </div>
+      <Progress value={progress} className="h-2" />
     </div>
   );
 }
