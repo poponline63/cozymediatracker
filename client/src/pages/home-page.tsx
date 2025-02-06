@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Search, User } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import MovieGrid from "@/components/movie-grid";
-import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -48,7 +46,7 @@ export default function HomePage() {
           </form>
           <Link href="/profile">
             <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
+              My Watchlist
             </Button>
           </Link>
         </div>

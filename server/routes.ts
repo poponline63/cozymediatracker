@@ -1,37 +1,30 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertWatchlistSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
-  setupAuth(app);
-
-  // Watchlist routes
+  // Watchlist routes - temporarily removing auth checks
   app.get("/api/watchlist", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    const items = await storage.getWatchlist(req.user.id);
+    // For testing, use a default user ID of 1
+    const items = await storage.getWatchlist(1);
     res.json(items);
   });
 
   app.post("/api/watchlist", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
     const parsed = insertWatchlistSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
     }
-    
-    const item = await storage.addToWatchlist(req.user.id, parsed.data);
+
+    const item = await storage.addToWatchlist(1, parsed.data);
     res.status(201).json(item);
   });
 
   app.patch("/api/watchlist/:id", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
     const { status, progress } = req.body;
     if (!status) return res.status(400).send("Status is required");
-    
+
     const item = await storage.updateWatchlistStatus(
       parseInt(req.params.id),
       status,
@@ -41,7 +34,6 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.delete("/api/watchlist/:id", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
     await storage.removeFromWatchlist(parseInt(req.params.id));
     res.sendStatus(204);
   });
@@ -50,7 +42,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/search", async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).send("Query is required");
-    
+
     const result = await fetch(
       `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&s=${query}`,
     );
