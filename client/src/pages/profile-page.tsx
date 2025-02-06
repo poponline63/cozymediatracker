@@ -5,12 +5,16 @@ import Layout from "@/components/layout";
 import type { Watchlist } from "@shared/schema";
 import { BarChart3, User } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { useState } from "react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import MediaDetails from "@/components/media-details";
 
 export default function ProfilePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
   });
 
+  const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const watching = watchlist?.filter((item) => item.status === "watching") || [];
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
 
@@ -28,7 +32,7 @@ export default function ProfilePage() {
 
   return (
     <Layout>
-      <div className="max-w-screen-2xl mx-auto">
+      <div className="max-w-screen-2xl mx-auto px-4">
         <div className="mb-8">
           <div className="flex items-center gap-3">
             <User className="h-8 w-8 text-primary" />
@@ -39,84 +43,125 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        <div className="mb-8 p-6 border rounded-lg bg-card">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-primary" />
-            <h2 className="text-lg font-semibold">Your Media Progress</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left side: Selected media or watchlist */}
+          <div className="space-y-6">
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
+              <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
+                <div className="flex w-max space-x-4 p-4">
+                  {watching.map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="w-[150px] cursor-pointer"
+                      onClick={() => setSelectedMediaId(item.mediaId)}
+                    >
+                      <img
+                        src={item.posterUrl}
+                        alt={item.title}
+                        className="w-full aspect-[2/3] rounded-lg object-cover"
+                      />
+                      <p className="mt-2 text-sm font-medium truncate">{item.title}</p>
+                    </div>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
+
+            {selectedMediaId && (
+              <MediaDetails
+                mediaId={selectedMediaId}
+                isOpen={!!selectedMediaId}
+                onClose={() => setSelectedMediaId(null)}
+              />
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {chartData.map(({ name, value, color }) => (
-                  <div key={name} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="text-sm font-medium">{name}</span>
-                    </div>
-                    <p className="text-2xl font-bold">{value}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {Math.round((value / totalItems) * 100)}% of total
-                    </p>
+          {/* Right side: Progress chart */}
+          {watching.length > 0 && (
+            <div className="p-6 border rounded-lg bg-card h-fit">
+              <div className="flex items-center gap-3 mb-6">
+                <BarChart3 className="h-8 w-8 text-primary" />
+                <h2 className="text-lg font-semibold">Your Media Progress</h2>
+              </div>
+
+              <div className="grid grid-cols-1 gap-8">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {chartData.map(({ name, value, color }) => (
+                      <div key={name} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="text-sm font-medium">{name}</span>
+                        </div>
+                        <p className="text-2xl font-bold">{value}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {Math.round((value / totalItems) * 100)}% of total
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                <div className="h-[200px]">
+                  {chartData.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={2}
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             </div>
-
-            <div className="h-[200px]">
-              {chartData.length > 0 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={2}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
-        <Tabs defaultValue="watching" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="watching">
-              Currently Watching ({watching.length})
-            </TabsTrigger>
-            <TabsTrigger value="plan_to_watch">
-              Plan to Watch ({planToWatch.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="mt-8">
+          <Tabs defaultValue="watching" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="watching">
+                Currently Watching ({watching.length})
+              </TabsTrigger>
+              <TabsTrigger value="plan_to_watch">
+                Plan to Watch ({planToWatch.length})
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="watching" className="space-y-4">
-            <MovieGrid
-              items={watching}
-              isLoading={isLoading}
-              showProgress
-              showRemove
-            />
-          </TabsContent>
+            <TabsContent value="watching" className="space-y-4">
+              <MovieGrid
+                items={watching}
+                isLoading={isLoading}
+                showProgress
+                showRemove
+              />
+            </TabsContent>
 
-          <TabsContent value="plan_to_watch" className="space-y-4">
-            <MovieGrid
-              items={planToWatch}
-              isLoading={isLoading}
-              showProgress
-              showRemove
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="plan_to_watch" className="space-y-4">
+              <MovieGrid
+                items={planToWatch}
+                isLoading={isLoading}
+                showProgress
+                showRemove
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </Layout>
   );

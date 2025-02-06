@@ -35,7 +35,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="px-4 py-4 pb-32">
+      <main className="py-4 pb-32">
         {children}
       </main>
     </div>
