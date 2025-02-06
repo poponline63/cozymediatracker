@@ -14,14 +14,14 @@ import { ProtectedRoute } from "@/lib/protected-route";
 function Router() {
   return (
     <div className="min-h-screen bg-background">
-      <TabNavigation />
       <Switch>
+        <Route path="/auth" component={AuthPage} />
         <ProtectedRoute path="/" component={HomePage} />
         <ProtectedRoute path="/search" component={SearchPage} />
         <ProtectedRoute path="/friends" component={FriendsPage} />
-        <Route path="/auth" component={AuthPage} />
         <Route component={NotFound} />
       </Switch>
+      <TabNavigation />
     </div>
   );
 }
