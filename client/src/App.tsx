@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import HomePage from "./pages/home-page";
 import SearchPage from "./pages/search-page";
 import FriendsPage from "./pages/friends-page";
+import StatisticsPage from "./pages/statistics-page";
 import NotFound from "./pages/not-found";
 import AuthPage from "./pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -23,6 +24,7 @@ function Router() {
         <ProtectedRoute path="/" component={HomePage} />
         <ProtectedRoute path="/search" component={SearchPage} />
         <ProtectedRoute path="/friends" component={FriendsPage} />
+        <ProtectedRoute path="/statistics" component={StatisticsPage} />
         <Route component={NotFound} />
       </Switch>
       {showNav && <TabNavigation />}

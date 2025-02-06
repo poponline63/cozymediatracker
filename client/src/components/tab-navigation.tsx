@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { User, Search, Users } from "lucide-react";
+import { User, Search, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -16,6 +16,7 @@ export default function TabNavigation() {
     { icon: User, label: "Profile", href: "/" },
     { icon: Search, label: "Search", href: "/search" },
     { icon: Users, label: "Friends", href: "/friends" },
+    { icon: BarChart3, label: "Stats", href: "/statistics" },
   ];
 
   const isSearchPage = location === "/search";
@@ -40,14 +41,14 @@ export default function TabNavigation() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-1 px-4 py-2">
+      <div className="grid grid-cols-4 gap-1 px-4 py-2">
         {tabs.map(({ icon: Icon, label, href }) => (
           <Link key={href} href={href}>
             <button
               className={cn(
                 "flex flex-col items-center justify-center py-1 px-2 gap-1 w-full rounded-lg transition-colors",
-                location === href 
-                  ? "text-primary" 
+                location === href
+                  ? "text-primary"
                   : "text-muted-foreground"
               )}
             >
