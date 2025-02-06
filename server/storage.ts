@@ -1,9 +1,11 @@
 import { users, watchlist, customLists, listItems, type User, type InsertUser, type Watchlist, type InsertWatchlist, type CustomList, type InsertCustomList } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
+import { watchSessions } from "@shared/schema";
+import { sql } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -26,6 +28,11 @@ export interface IStorage {
   createCustomList(userId: number, list: InsertCustomList): Promise<CustomList>;
   addToCustomList(listId: number, item: { mediaId: string; title: string; posterUrl: string }): Promise<any>;
   removeFromCustomList(itemId: number): Promise<void>;
+
+  // Statistics methods
+  getUserStatistics(userId: number): Promise<any>;
+  getRecentWatchSessions(userId: number): Promise<any>;
+  createWatchSession(userId: number, session: any): Promise<any>;
 
   sessionStore: session.Store;
 }
@@ -134,6 +141,82 @@ export class DatabaseStorage implements IStorage {
 
   async removeFromCustomList(itemId: number): Promise<void> {
     await db.delete(listItems).where(eq(listItems.id, itemId));
+  }
+
+  async getUserStatistics(userId: number) {
+    const [totalStats] = await db
+      .select({
+        totalWatchtime: sql<number>`sum(total_watchtime)`,
+        totalItems: sql<number>`count(*)`,
+        averageRating: sql<number>`avg(rating)`,
+        ratedItems: sql<number>`count(rating)`,
+      })
+      .from(watchlist)
+      .where(eq(watchlist.userId, userId));
+
+    const [weeklyStats] = await db
+      .select({
+        averageDailyWatchtime: sql<number>`avg(duration)`,
+      })
+      .from(watchSessions)
+      .where(
+        and(
+          eq(watchSessions.userId, userId),
+          sql`${watchSessions.startTime} > now() - interval '7 days'`
+        )
+      );
+
+    const watchTimeByDay = await db
+      .select({
+        day: sql<string>`to_char(start_time, 'Day')`,
+        hours: sql<number>`sum(duration) / 60.0`,
+      })
+      .from(watchSessions)
+      .where(eq(watchSessions.userId, userId))
+      .groupBy(sql`to_char(start_time, 'Day')`)
+      .orderBy(sql`min(extract(dow from start_time))`);
+
+    return {
+      ...totalStats,
+      ...weeklyStats,
+      watchTimeByDay,
+    };
+  }
+
+  async getRecentWatchSessions(userId: number) {
+    return db
+      .select({
+        id: watchSessions.id,
+        title: watchlist.title,
+        duration: watchSessions.duration,
+        startTime: watchSessions.startTime,
+      })
+      .from(watchSessions)
+      .innerJoin(watchlist, eq(watchSessions.watchlistId, watchlist.id))
+      .where(eq(watchSessions.userId, userId))
+      .orderBy(desc(watchSessions.startTime))
+      .limit(10);
+  }
+
+  async createWatchSession(userId: number, session: any) {
+    const [newSession] = await db
+      .insert(watchSessions)
+      .values({
+        ...session,
+        userId,
+        duration: Math.floor((new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 60000),
+      })
+      .returning();
+
+    await db
+      .update(watchlist)
+      .set({
+        totalWatchtime: sql`total_watchtime + ${newSession.duration}`,
+        lastWatched: new Date(),
+      })
+      .where(eq(watchlist.id, session.watchlistId));
+
+    return newSession;
   }
 }
 

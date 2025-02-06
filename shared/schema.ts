@@ -50,6 +50,8 @@ export const watchlist = pgTable("watchlist", {
   posterUrl: text("poster_url"),
   status: text("status").notNull(), // watching, plan_to_watch, completed
   progress: integer("progress"), // Episode/season number for series
+  totalWatchtime: integer("total_watchtime"), // in minutes
+  lastWatched: timestamp("last_watched"),
   rating: integer("rating"), // 1-5 stars
   notes: text("notes"),
   addedAt: timestamp("added_at").notNull().defaultNow(),
@@ -91,6 +93,18 @@ export const partyParticipants = pgTable("party_participants", {
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
 });
 
+// Add watch sessions table for detailed tracking
+export const watchSessions = pgTable("watch_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  mediaId: text("media_id").notNull(),
+  watchlistId: integer("watchlist_id").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"), // in minutes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Schema definitions
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -118,6 +132,13 @@ export const insertWatchPartySchema = createInsertSchema(watchParties).omit({
   createdAt: true,
 });
 
+// Add schema for inserting watch sessions
+export const insertWatchSessionSchema = createInsertSchema(watchSessions).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -127,3 +148,5 @@ export type CustomList = typeof customLists.$inferSelect;
 export type InsertCustomList = z.infer<typeof insertCustomListSchema>;
 export type WatchParty = typeof watchParties.$inferSelect;
 export type InsertWatchParty = z.infer<typeof insertWatchPartySchema>;
+export type WatchSession = typeof watchSessions.$inferSelect;
+export type InsertWatchSession = z.infer<typeof insertWatchSessionSchema>;

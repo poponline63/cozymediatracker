@@ -181,6 +181,29 @@ export function registerRoutes(app: Express): Server {
     res.json(item);
   });
 
+  // Add statistics routes
+  app.get("/api/statistics", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const stats = await storage.getUserStatistics(req.user!.id);
+    res.json(stats);
+  });
+
+  app.get("/api/statistics/watch-sessions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const sessions = await storage.getRecentWatchSessions(req.user!.id);
+    res.json(sessions);
+  });
+
+  app.post("/api/watch-sessions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const session = await storage.createWatchSession(req.user!.id, req.body);
+    res.status(201).json(session);
+  });
+
+
   const httpServer = createServer(app);
   return httpServer;
 }
