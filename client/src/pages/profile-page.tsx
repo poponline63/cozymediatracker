@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
+import Layout from "@/components/layout";
 import type { Watchlist } from "@shared/schema";
 
 export default function ProfilePage() {
@@ -14,20 +13,13 @@ export default function ProfilePage() {
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">My Watchlist</h1>
-              <p className="text-muted-foreground">
-                {watchlist?.length || 0} items in watchlist
-              </p>
-            </div>
-          </div>
-          <Link href="/">
-            <Button variant="ghost">Back to Search</Button>
-          </Link>
+    <Layout>
+      <div className="max-w-screen-2xl mx-auto">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold">My Watchlist</h2>
+          <p className="text-muted-foreground">
+            {watchlist?.length || 0} items in watchlist
+          </p>
         </div>
 
         <Tabs defaultValue="watching" className="space-y-4">
@@ -59,6 +51,6 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </Layout>
   );
 }
