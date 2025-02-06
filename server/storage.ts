@@ -1,7 +1,7 @@
 import { users, watchlist, type User, type InsertUser, type Watchlist, type InsertWatchlist } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -14,6 +14,7 @@ export interface IStorage {
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
+  getWatchlistByMediaId(userId: number, mediaId: string): Promise<Watchlist | undefined>;
   addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist>;
   updateWatchlistStatus(id: number, status: string, progress?: number): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
@@ -48,6 +49,14 @@ export class DatabaseStorage implements IStorage {
 
   async getWatchlist(userId: number): Promise<Watchlist[]> {
     return db.select().from(watchlist).where(eq(watchlist.userId, userId));
+  }
+
+  async getWatchlistByMediaId(userId: number, mediaId: string): Promise<Watchlist | undefined> {
+    const [item] = await db
+      .select()
+      .from(watchlist)
+      .where(and(eq(watchlist.userId, userId), eq(watchlist.mediaId, mediaId)));
+    return item;
   }
 
   async addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist> {

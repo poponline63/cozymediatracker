@@ -19,6 +19,12 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json(parsed.error);
     }
 
+    // Check if media already exists in user's watchlist
+    const existing = await storage.getWatchlistByMediaId(req.user!.id, parsed.data.mediaId);
+    if (existing) {
+      return res.status(400).json({ message: "This media is already in your watchlist" });
+    }
+
     const item = await storage.addToWatchlist(req.user!.id, parsed.data);
     res.status(201).json(item);
   });
