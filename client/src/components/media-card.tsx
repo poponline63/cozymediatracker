@@ -43,7 +43,7 @@ export default function MediaCard({
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       toast({
         title: "Added to watchlist",
-        description: "Successfully added to your watchlist",
+        description: `${title} has been added to your watchlist`,
       });
     },
   });
@@ -56,7 +56,7 @@ export default function MediaCard({
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       toast({
         title: "Removed from watchlist",
-        description: "Successfully removed from your watchlist",
+        description: `${title} has been removed from your watchlist`,
       });
     },
   });
