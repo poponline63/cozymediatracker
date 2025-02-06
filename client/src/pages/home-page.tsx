@@ -3,6 +3,7 @@ import { BarChart3, User } from "lucide-react";
 import type { Watchlist } from "@shared/schema";
 import MovieGrid from "@/components/movie-grid";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Layout from "@/components/layout";
 
 export default function HomePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
@@ -13,55 +14,57 @@ export default function HomePage() {
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
 
   return (
-    <div className="p-4 space-y-6">
-      <div className="flex items-center gap-3">
-        <User className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-semibold">My Profile</h1>
-      </div>
-
-      <div className="space-y-6">
+    <Layout>
+      <div className="p-4 space-y-6">
         <div className="flex items-center gap-3">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          <h2 className="text-lg font-semibold">Your Media Progress</h2>
+          <User className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-semibold">My Profile</h1>
         </div>
 
-        {!watchlist?.length ? (
-          <div className="bg-blue-50/10 rounded-lg p-4">
-            <p className="text-muted-foreground">
-              Add some shows or movies to start tracking!
-            </p>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="h-6 w-6 text-primary" />
+            <h2 className="text-lg font-semibold">Your Media Progress</h2>
           </div>
-        ) : (
-          <Tabs defaultValue="watching" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="watching">
-                Currently Watching ({watching.length})
-              </TabsTrigger>
-              <TabsTrigger value="plan_to_watch">
-                Plan to Watch ({planToWatch.length})
-              </TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="watching" className="space-y-4">
-              <MovieGrid
-                items={watching}
-                isLoading={isLoading}
-                showProgress
-                showRemove
-              />
-            </TabsContent>
+          {!watchlist?.length ? (
+            <div className="bg-blue-50/10 rounded-lg p-4">
+              <p className="text-muted-foreground">
+                Add some shows or movies to start tracking!
+              </p>
+            </div>
+          ) : (
+            <Tabs defaultValue="watching" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="watching">
+                  Currently Watching ({watching.length})
+                </TabsTrigger>
+                <TabsTrigger value="plan_to_watch">
+                  Plan to Watch ({planToWatch.length})
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="plan_to_watch" className="space-y-4">
-              <MovieGrid
-                items={planToWatch}
-                isLoading={isLoading}
-                showProgress
-                showRemove
-              />
-            </TabsContent>
-          </Tabs>
-        )}
+              <TabsContent value="watching" className="space-y-4">
+                <MovieGrid
+                  items={watching}
+                  isLoading={isLoading}
+                  showProgress
+                  showRemove
+                />
+              </TabsContent>
+
+              <TabsContent value="plan_to_watch" className="space-y-4">
+                <MovieGrid
+                  items={planToWatch}
+                  isLoading={isLoading}
+                  showProgress
+                  showRemove
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
