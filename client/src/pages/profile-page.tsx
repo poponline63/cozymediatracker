@@ -39,32 +39,32 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {watching.length > 0 && (
-          <div className="mb-8 p-6 border rounded-lg bg-card">
-            <div className="flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-primary" />
-              <h2 className="text-lg font-semibold">Your Media Progress</h2>
+        <div className="mb-8 p-6 border rounded-lg bg-card">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="h-8 w-8 text-primary" />
+            <h2 className="text-lg font-semibold">Your Media Progress</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {chartData.map(({ name, value, color }) => (
+                  <div key={name} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="text-sm font-medium">{name}</span>
+                    </div>
+                    <p className="text-2xl font-bold">{value}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {Math.round((value / totalItems) * 100)}% of total
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {chartData.map(({ name, value, color }) => (
-                    <div key={name} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                        <span className="text-sm font-medium">{name}</span>
-                      </div>
-                      <p className="text-2xl font-bold">{value}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.round((value / totalItems) * 100)}% of total
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-[200px]">
+            <div className="h-[200px]">
+              {chartData.length > 0 && (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -84,10 +84,10 @@ export default function ProfilePage() {
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
 
         <Tabs defaultValue="watching" className="space-y-4">
           <TabsList>
