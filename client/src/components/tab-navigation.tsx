@@ -12,23 +12,21 @@ export default function TabNavigation() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border">
-      <div className="grid grid-cols-3 gap-1">
-        {tabs.map(({ icon: Icon, label, href }) => (
-          <Link key={href} href={href}>
-            <button
-              className={cn(
-                "flex flex-1 flex-col items-center justify-center py-3 px-2 gap-1",
-                "text-sm font-medium",
-                location === href ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              {label}
-            </button>
-          </Link>
-        ))}
-      </div>
+    <div className="grid grid-cols-3 gap-1 p-4">
+      {tabs.map(({ icon: Icon, label, href }) => (
+        <Link key={href} href={href}>
+          <button
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center py-3 px-2 gap-1 w-full",
+              "bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors",
+              location === href ? "bg-blue-600" : "bg-blue-500"
+            )}
+          >
+            <Icon className="h-5 w-5" />
+            <span className="text-sm font-medium">{label}</span>
+          </button>
+        </Link>
+      ))}
     </div>
   );
 }

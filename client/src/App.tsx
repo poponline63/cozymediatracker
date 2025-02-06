@@ -10,14 +10,14 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
-    <div className="pb-[72px] min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
+      <TabNavigation />
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/search" component={SearchPage} />
         <Route path="/friends" component={FriendsPage} />
         <Route component={NotFound} />
       </Switch>
-      <TabNavigation />
     </div>
   );
 }
