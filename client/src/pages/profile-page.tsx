@@ -36,12 +36,12 @@ export default function ProfilePage() {
 
         {watching.length > 0 && (
           <div className="mb-8 p-6 border rounded-lg bg-card">
-            <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Watch Progress</h3>
+            <div className="flex items-center gap-3">
+              <BarChart3 className="h-8 w-8 text-primary" />
+              <h3 className="text-lg font-semibold">Watch Progress</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Overall Progress</h4>
                 <Progress value={completionPercentage} className="h-2" />
