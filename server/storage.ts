@@ -1,7 +1,11 @@
 import { users, watchlist, type User, type InsertUser, type Watchlist, type InsertWatchlist } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
-const MemoryStore = createMemoryStore(session);
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -14,60 +18,43 @@ export interface IStorage {
   updateWatchlistStatus(id: number, status: string, progress?: number): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
 
-  sessionStore: ReturnType<typeof createMemoryStore>;
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private watchlistItems: Map<number, Watchlist>;
-  private currentUserId: number;
-  private currentWatchlistId: number;
-  sessionStore: ReturnType<typeof createMemoryStore>;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.watchlistItems = new Map();
-    this.currentUserId = 1;
-    this.currentWatchlistId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id, avatarUrl: insertUser.avatarUrl || null };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async getWatchlist(userId: number): Promise<Watchlist[]> {
-    return Array.from(this.watchlistItems.values()).filter(
-      (item) => item.userId === userId,
-    );
+    return db.select().from(watchlist).where(eq(watchlist.userId, userId));
   }
 
   async addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist> {
-    const id = this.currentWatchlistId++;
-    const watchlistItem: Watchlist = {
-      ...item,
-      id,
-      userId,
-      addedAt: new Date(),
-      progress: item.progress || null,
-      posterUrl: item.posterUrl || null,
-    };
-    this.watchlistItems.set(id, watchlistItem);
+    const [watchlistItem] = await db
+      .insert(watchlist)
+      .values({ ...item, userId })
+      .returning();
     return watchlistItem;
   }
 
@@ -76,21 +63,18 @@ export class MemStorage implements IStorage {
     status: string,
     progress?: number,
   ): Promise<Watchlist> {
-    const item = this.watchlistItems.get(id);
-    if (!item) throw new Error("Watchlist item not found");
-
-    const updated = {
-      ...item,
-      status,
-      progress: progress !== undefined ? progress : item.progress,
-    };
-    this.watchlistItems.set(id, updated);
+    const [updated] = await db
+      .update(watchlist)
+      .set({ status, progress })
+      .where(eq(watchlist.id, id))
+      .returning();
+    if (!updated) throw new Error("Watchlist item not found");
     return updated;
   }
 
   async removeFromWatchlist(id: number): Promise<void> {
-    this.watchlistItems.delete(id);
+    await db.delete(watchlist).where(eq(watchlist.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
