@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Star, Plus } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface MediaDetailsProps {
   mediaId: string;
@@ -28,6 +31,7 @@ export default function MediaDetails({
   onClose,
 }: MediaDetailsProps) {
   const [currentSeason, setCurrentSeason] = useState("1");
+  const { toast } = useToast();
 
   const { data: details, isLoading } = useQuery({
     queryKey: ["/api/media", mediaId, currentSeason],
@@ -39,6 +43,26 @@ export default function MediaDetails({
       return res.json();
     },
     enabled: isOpen && !!mediaId,
+  });
+
+  const addToWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        mediaId,
+        title: details?.Title,
+        type: details?.Type,
+        posterUrl: details?.Poster,
+        status: "plan_to_watch",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Added to watchlist",
+        description: `${details?.Title} has been added to your watchlist`,
+      });
+    },
   });
 
   return (
@@ -79,6 +103,14 @@ export default function MediaDetails({
                 />
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{details.Plot}</p>
+                  <Button
+                    onClick={() => addToWatchlistMutation.mutate()}
+                    disabled={addToWatchlistMutation.isPending}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add to Watchlist
+                  </Button>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <h4 className="font-semibold">Director</h4>

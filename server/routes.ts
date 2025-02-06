@@ -59,7 +59,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const season = req.query.season || "1";
 
-      // Fetch basic details
+      // Fetch basic details with full plot
       const result = await fetch(
         `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&plot=full`,
       );
@@ -73,12 +73,25 @@ export function registerRoutes(app: Express): Server {
       // If it's a series, fetch episode information for the requested season
       if (data.Type === "series") {
         const seasonsResult = await fetch(
-          `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&Season=${season}`,
+          `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&Season=${season}&plot=full`,
         );
 
         if (seasonsResult.ok) {
           const seasonsData = await seasonsResult.json();
-          data.Episodes = seasonsData.Episodes;
+          // Fetch full details for each episode
+          if (seasonsData.Episodes) {
+            data.Episodes = await Promise.all(
+              seasonsData.Episodes.map(async (episode: any) => {
+                const episodeResult = await fetch(
+                  `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${episode.imdbID}&plot=full`
+                );
+                if (episodeResult.ok) {
+                  return episodeResult.json();
+                }
+                return episode;
+              })
+            );
+          }
         }
       }
 
