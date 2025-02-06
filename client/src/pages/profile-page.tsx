@@ -79,14 +79,13 @@ export default function ProfilePage() {
           </div>
 
           {/* Right side: Progress chart */}
-          {watching.length > 0 && (
-            <div className="p-6 border rounded-lg bg-card h-fit">
-              <div className="flex items-center gap-3 mb-6">
-                <BarChart3 className="h-8 w-8 text-primary" />
-                <h2 className="text-lg font-semibold">Your Media Progress</h2>
-              </div>
+          <div className="p-6 border rounded-lg bg-card h-fit">
+            <div className="flex items-center gap-3 mb-6">
+              <BarChart3 className="h-8 w-8 text-primary" />
+              <h2 className="text-lg font-semibold">Your Media Progress</h2>
+            </div>
 
-              <div className="grid grid-cols-1 gap-8">
+            <div className="grid grid-cols-1 gap-8">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     {chartData.map(({ name, value, color }) => (
@@ -129,7 +128,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="mt-8">
