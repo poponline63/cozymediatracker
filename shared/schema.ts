@@ -2,6 +2,13 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session table for express-session
+export const sessions = pgTable("session", {
+  sid: text("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { mode: "date" }).notNull(),
+});
+
 // User related tables
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
