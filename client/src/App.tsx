@@ -7,15 +7,19 @@ import HomePage from "@/pages/home-page";
 import SearchPage from "@/pages/search-page";
 import FriendsPage from "@/pages/friends-page";
 import NotFound from "@/pages/not-found";
+import AuthPage from "@/pages/auth-page";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function Router() {
   return (
     <div className="min-h-screen bg-background">
       <TabNavigation />
       <Switch>
-        <Route path="/" component={HomePage} />
-        <Route path="/search" component={SearchPage} />
-        <Route path="/friends" component={FriendsPage} />
+        <ProtectedRoute path="/" component={HomePage} />
+        <ProtectedRoute path="/search" component={SearchPage} />
+        <ProtectedRoute path="/friends" component={FriendsPage} />
+        <Route path="/auth" component={AuthPage} />
         <Route component={NotFound} />
       </Switch>
     </div>
@@ -25,8 +29,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

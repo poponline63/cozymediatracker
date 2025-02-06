@@ -4,24 +4,28 @@ import { storage } from "./storage";
 import { insertWatchlistSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
-  // Watchlist routes - temporarily removing auth checks
+  // Watchlist routes
   app.get("/api/watchlist", async (req, res) => {
-    // For testing, use a default user ID of 1
-    const items = await storage.getWatchlist(1);
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const items = await storage.getWatchlist(req.user!.id);
     res.json(items);
   });
 
   app.post("/api/watchlist", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
     const parsed = insertWatchlistSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
     }
 
-    const item = await storage.addToWatchlist(1, parsed.data);
+    const item = await storage.addToWatchlist(req.user!.id, parsed.data);
     res.status(201).json(item);
   });
 
   app.patch("/api/watchlist/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
     const { status, progress } = req.body;
     if (!status) return res.status(400).send("Status is required");
 
@@ -34,6 +38,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.delete("/api/watchlist/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
     await storage.removeFromWatchlist(parseInt(req.params.id));
     res.sendStatus(204);
   });
