@@ -1,4 +1,4 @@
-import { users, watchlist, type User, type InsertUser, type Watchlist, type InsertWatchlist } from "@shared/schema";
+import { users, watchlist, customLists, listItems, type User, type InsertUser, type Watchlist, type InsertWatchlist, type CustomList, type InsertCustomList } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -17,7 +17,15 @@ export interface IStorage {
   getWatchlistByMediaId(userId: number, mediaId: string): Promise<Watchlist | undefined>;
   addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist>;
   updateWatchlistStatus(id: number, status: string, progress?: number): Promise<Watchlist>;
+  updateWatchlistRating(id: number, rating: number): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
+
+  // Custom lists operations
+  getCustomLists(userId: number): Promise<CustomList[]>;
+  getCustomList(id: number): Promise<CustomList | undefined>;
+  createCustomList(userId: number, list: InsertCustomList): Promise<CustomList>;
+  addToCustomList(listId: number, item: { mediaId: string; title: string; posterUrl: string }): Promise<any>;
+  removeFromCustomList(itemId: number): Promise<void>;
 
   sessionStore: session.Store;
 }
@@ -81,8 +89,51 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async updateWatchlistRating(id: number, rating: number): Promise<Watchlist> {
+    const [updated] = await db
+      .update(watchlist)
+      .set({ rating })
+      .where(eq(watchlist.id, id))
+      .returning();
+    if (!updated) throw new Error("Watchlist item not found");
+    return updated;
+  }
+
   async removeFromWatchlist(id: number): Promise<void> {
     await db.delete(watchlist).where(eq(watchlist.id, id));
+  }
+
+  // Custom lists operations
+  async getCustomLists(userId: number): Promise<CustomList[]> {
+    return db.select().from(customLists).where(eq(customLists.userId, userId));
+  }
+
+  async getCustomList(id: number): Promise<CustomList | undefined> {
+    const [list] = await db.select().from(customLists).where(eq(customLists.id, id));
+    return list;
+  }
+
+  async createCustomList(userId: number, list: InsertCustomList): Promise<CustomList> {
+    const [newList] = await db
+      .insert(customLists)
+      .values({ ...list, userId })
+      .returning();
+    return newList;
+  }
+
+  async addToCustomList(
+    listId: number,
+    item: { mediaId: string; title: string; posterUrl: string }
+  ): Promise<any> {
+    const [listItem] = await db
+      .insert(listItems)
+      .values({ ...item, listId })
+      .returning();
+    return listItem;
+  }
+
+  async removeFromCustomList(itemId: number): Promise<void> {
+    await db.delete(listItems).where(eq(listItems.id, itemId));
   }
 }
 
