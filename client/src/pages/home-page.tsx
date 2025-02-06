@@ -1,43 +1,46 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BarChart3, User } from "lucide-react";
+import type { Watchlist } from "@shared/schema";
 import MovieGrid from "@/components/movie-grid";
-import Layout from "@/components/layout";
 
 export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-
-  const { data: searchResults, isLoading } = useQuery({
-    queryKey: ["/api/search", debouncedQuery],
-    queryFn: async () => {
-      if (!debouncedQuery) return null;
-      const res = await fetch(`/api/search?query=${encodeURIComponent(debouncedQuery)}`);
-      return res.json();
-    },
-    enabled: Boolean(debouncedQuery),
+  const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
+    queryKey: ["/api/watchlist"],
   });
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setDebouncedQuery(query);
-  };
+  const watching = watchlist?.filter((item) => item.status === "watching") || [];
 
   return (
-    <Layout showSearch onSearch={handleSearch} searchValue={searchQuery}>
-      {!debouncedQuery ? (
-        <div className="text-center py-12">
-          <h2 className="text-3xl font-bold mb-4">Welcome to CozyWatch</h2>
-          <p className="text-muted-foreground max-w-lg mx-auto">
-            Search for your favorite movies, shows, and anime to start building your watchlist.
+    <div className="p-4 space-y-6">
+      <div className="flex items-center gap-3">
+        <User className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl font-semibold">My Profile</h1>
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <BarChart3 className="h-6 w-6 text-primary" />
+          <h2 className="text-lg font-semibold">Your Media Progress</h2>
+        </div>
+
+        <div className="bg-blue-50/10 rounded-lg p-4">
+          <p className="text-muted-foreground">
+            Add some shows or movies to start tracking!
           </p>
         </div>
-      ) : (
-        <MovieGrid
-          items={searchResults?.Search || []}
-          isLoading={isLoading}
-          showAddToList
-        />
-      )}
-    </Layout>
+
+        {watching.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="font-medium">Currently Watching</h3>
+            <MovieGrid
+              items={watching}
+              isLoading={isLoading}
+              showProgress
+              showRemove
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
