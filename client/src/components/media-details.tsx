@@ -6,7 +6,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Star } from "lucide-react";
+import { useState } from "react";
 
 interface MediaDetailsProps {
   mediaId: string;
@@ -19,10 +27,12 @@ export default function MediaDetails({
   isOpen,
   onClose,
 }: MediaDetailsProps) {
+  const [currentSeason, setCurrentSeason] = useState("1");
+
   const { data: details, isLoading } = useQuery({
-    queryKey: ["/api/media", mediaId],
+    queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
-      const res = await fetch(`/api/media/${mediaId}`);
+      const res = await fetch(`/api/media/${mediaId}?season=${currentSeason}`);
       if (!res.ok) {
         throw new Error('Failed to fetch media details');
       }
@@ -103,25 +113,58 @@ export default function MediaDetails({
 
               {details.Type === "series" && details.Episodes && (
                 <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Episodes</h3>
-                  <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold">Episodes</h3>
+                    {details.totalSeasons && (
+                      <Select
+                        value={currentSeason}
+                        onValueChange={setCurrentSeason}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue>Season {currentSeason}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(
+                            { length: parseInt(details.totalSeasons) },
+                            (_, i) => (
+                              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                Season {i + 1}
+                              </SelectItem>
+                            )
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className="space-y-3">
                     {details.Episodes.map((episode: any) => (
                       <div
                         key={episode.imdbID}
-                        className="p-4 rounded-lg border bg-card"
+                        className="p-4 rounded-lg border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">
-                              {episode.Episode}. {episode.Title}
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
-                              {episode.Plot}
-                            </p>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <h4 className="font-medium flex items-baseline gap-2">
+                                <span className="text-lg">
+                                  {episode.Episode}.
+                                </span>
+                                <span>{episode.Title}</span>
+                              </h4>
+                              {episode.imdbRating && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                  <span>{episode.imdbRating}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground shrink-0">
+                              {episode.Released}
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {episode.Released}
-                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {episode.Plot}
+                          </p>
                         </div>
                       </div>
                     ))}
