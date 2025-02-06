@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import WatchTimer from "./watch-timer";
 
 interface MediaDetailsProps {
   mediaId: string;
@@ -107,6 +108,29 @@ export default function MediaDetails({
         title: "Added to list",
         description: "The item has been added to your list",
       });
+    },
+  });
+
+  const { data } = useQuery({
+    queryKey: ["/api/watchlist", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/watchlist/${mediaId}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch watchlist item");
+      }
+      return res.json();
+    },
+    enabled: !!mediaId,
+  });
+
+
+  const updateProgressMutation = useMutation({
+    mutationFn: async ({ id, progress }: { id: number; progress: number }) => {
+      const res = await apiRequest("PATCH", `/api/watchlist/${id}`, { progress });
+      if (!res.ok) {
+        throw new Error('Failed to update watchlist progress')
+      }
+      return res.json();
     },
   });
 
@@ -204,6 +228,24 @@ export default function MediaDetails({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {data?.watchlistItem && data.watchlistItem.status === "watching" && (
+                      <div className="mt-4 p-4 border rounded-lg">
+                        <h3 className="text-sm font-medium mb-4">Watch Timer</h3>
+                        <WatchTimer 
+                          mediaId={mediaId}
+                          watchlistId={data.watchlistItem.id}
+                          totalDuration={parseInt(details.Runtime)} 
+                          onProgressUpdate={(progress) => {
+                            if (progress > data.watchlistItem.progress) {
+                              updateProgressMutation.mutate({
+                                id: data.watchlistItem.id,
+                                progress,
+                              });
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

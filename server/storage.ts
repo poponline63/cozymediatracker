@@ -21,6 +21,7 @@ export interface IStorage {
   updateWatchlistStatus(id: number, status: string, progress?: number): Promise<Watchlist>;
   updateWatchlistRating(id: number, rating: number): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
+  updateWatchlistProgress(id: number, progress: number): Promise<Watchlist>;
 
   // Custom lists operations
   getCustomLists(userId: number): Promise<CustomList[]>;
@@ -217,6 +218,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(watchlist.id, session.watchlistId));
 
     return newSession;
+  }
+
+  async updateWatchlistProgress(id: number, progress: number): Promise<Watchlist> {
+    const [updated] = await db
+      .update(watchlist)
+      .set({ progress })
+      .where(eq(watchlist.id, id))
+      .returning();
+    if (!updated) throw new Error("Watchlist item not found");
+    return updated;
   }
 }
 

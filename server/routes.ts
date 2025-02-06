@@ -196,6 +196,7 @@ export function registerRoutes(app: Express): Server {
     res.json(sessions);
   });
 
+  // Add this to the routes registration
   app.post("/api/watch-sessions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -203,6 +204,21 @@ export function registerRoutes(app: Express): Server {
     res.status(201).json(session);
   });
 
+  // Add progress update endpoint
+  app.patch("/api/watchlist/:id/progress", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { progress } = req.body;
+    if (typeof progress !== "number" || progress < 0 || progress > 100) {
+      return res.status(400).json({ message: "Invalid progress value" });
+    }
+
+    const item = await storage.updateWatchlistProgress(
+      parseInt(req.params.id),
+      progress
+    );
+    res.json(item);
+  });
 
   const httpServer = createServer(app);
   return httpServer;
