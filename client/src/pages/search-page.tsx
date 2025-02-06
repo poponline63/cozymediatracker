@@ -4,16 +4,20 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import MovieGrid from "@/components/movie-grid";
 import { Button } from "@/components/ui/button";
+import MediaDetails from "@/components/media-details";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
 
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ["/api/search", debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery) return null;
-      const res = await fetch(`/api/search?query=${encodeURIComponent(debouncedQuery)}`);
+      const res = await fetch(
+        `/api/search?query=${encodeURIComponent(debouncedQuery)}`,
+      );
       return res.json();
     },
     enabled: Boolean(debouncedQuery),
@@ -50,6 +54,13 @@ export default function SearchPage() {
         items={searchResults?.Search || []}
         isLoading={isLoading}
         showAddToList
+        onItemClick={(id) => setSelectedMediaId(id)}
+      />
+
+      <MediaDetails
+        mediaId={selectedMediaId!}
+        isOpen={!!selectedMediaId}
+        onClose={() => setSelectedMediaId(null)}
       />
     </div>
   );

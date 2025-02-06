@@ -56,10 +56,21 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.get("/api/media/:id", async (req, res) => {
+    // Fetch basic details
     const result = await fetch(
-      `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}`,
+      `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&plot=full`,
     );
     const data = await result.json();
+
+    // If it's a series, fetch episode information
+    if (data.Type === "series") {
+      const seasonsResult = await fetch(
+        `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${req.params.id}&Season=1`,
+      );
+      const seasonsData = await seasonsResult.json();
+      data.Episodes = seasonsData.Episodes;
+    }
+
     res.json(data);
   });
 

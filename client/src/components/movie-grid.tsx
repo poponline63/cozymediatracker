@@ -8,6 +8,7 @@ interface MovieGridProps {
   showAddToList?: boolean;
   showProgress?: boolean;
   showRemove?: boolean;
+  onItemClick?: (id: string) => void;
 }
 
 export default function MovieGrid({
@@ -16,6 +17,7 @@ export default function MovieGrid({
   showAddToList,
   showProgress,
   showRemove,
+  onItemClick,
 }: MovieGridProps) {
   if (isLoading) {
     return (
@@ -42,19 +44,24 @@ export default function MovieGrid({
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map((item) => (
-        <MediaCard
+        <div
           key={item.imdbID || item.id}
-          id={item.imdbID || item.mediaId}
-          title={item.Title || item.title}
-          posterUrl={item.Poster || item.posterUrl}
-          type={item.Type || item.type}
-          showAddToList={showAddToList}
-          showProgress={showProgress}
-          showRemove={showRemove}
-          progress={item.progress}
-          watchlistId={item.id}
-          status={item.status}
-        />
+          className="cursor-pointer"
+          onClick={() => onItemClick?.(item.imdbID || item.mediaId)}
+        >
+          <MediaCard
+            id={item.imdbID || item.mediaId}
+            title={item.Title || item.title}
+            posterUrl={item.Poster || item.posterUrl}
+            type={item.Type || item.type}
+            showAddToList={showAddToList}
+            showProgress={showProgress}
+            showRemove={showRemove}
+            progress={item.progress}
+            watchlistId={item.id}
+            status={item.status}
+          />
+        </div>
       ))}
     </div>
   );

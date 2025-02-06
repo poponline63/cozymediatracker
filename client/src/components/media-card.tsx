@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Eye, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertWatchlist } from "@shared/schema";
 import WatchProgress from "./watch-progress";
@@ -61,6 +61,20 @@ export default function MediaCard({
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/watchlist/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Status updated",
+        description: `${title} has been moved to ${status === "watching" ? "Currently Watching" : "Plan to Watch"}`,
+      });
+    },
+  });
+
   return (
     <Card className="overflow-hidden group relative">
       <CardContent className="p-0">
@@ -98,6 +112,33 @@ export default function MediaCard({
             >
               <Plus className="h-4 w-4 mr-1" />
               Add to Watchlist
+            </Button>
+          )}
+
+          {watchlistId && !showAddToList && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full mt-2"
+              onClick={() =>
+                updateStatusMutation.mutate({
+                  id: watchlistId,
+                  status: status === "watching" ? "plan_to_watch" : "watching",
+                })
+              }
+              disabled={updateStatusMutation.isPending}
+            >
+              {status === "watching" ? (
+                <>
+                  <Clock className="h-4 w-4 mr-1" />
+                  Move to Plan to Watch
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-1" />
+                  Move to Watching
+                </>
+              )}
             </Button>
           )}
         </div>
