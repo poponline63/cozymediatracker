@@ -43,6 +43,7 @@ export default function MediaDetails({
       return res.json();
     },
     enabled: isOpen && !!mediaId,
+    staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
   const addToWatchlistMutation = useMutation({

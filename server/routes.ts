@@ -43,7 +43,7 @@ export function registerRoutes(app: Express): Server {
     res.sendStatus(204);
   });
 
-  // OMDB Proxy
+  // OMDB Proxy with caching
   app.get("/api/search", async (req, res) => {
     const { query } = req.query;
     if (!query) return res.status(400).send("Query is required");
@@ -52,6 +52,9 @@ export function registerRoutes(app: Express): Server {
       `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&s=${query}`,
     );
     const data = await result.json();
+
+    // Add cache headers
+    res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
     res.json(data);
   });
 
@@ -78,23 +81,13 @@ export function registerRoutes(app: Express): Server {
 
         if (seasonsResult.ok) {
           const seasonsData = await seasonsResult.json();
-          // Fetch full details for each episode
-          if (seasonsData.Episodes) {
-            data.Episodes = await Promise.all(
-              seasonsData.Episodes.map(async (episode: any) => {
-                const episodeResult = await fetch(
-                  `http://www.omdbapi.com/?apikey=${process.env.OMDB_API_KEY}&i=${episode.imdbID}&plot=full`
-                );
-                if (episodeResult.ok) {
-                  return episodeResult.json();
-                }
-                return episode;
-              })
-            );
-          }
+          // Use the episode data directly from the season request
+          data.Episodes = seasonsData.Episodes;
         }
       }
 
+      // Add cache headers
+      res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
       res.json(data);
     } catch (error) {
       console.error('Error fetching media details:', error);
