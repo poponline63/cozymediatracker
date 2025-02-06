@@ -90,7 +90,9 @@ export default function MediaCard({
           {showProgress && status === "watching" && (
             <WatchProgress
               watchlistId={watchlistId!}
+              mediaId={id}
               currentProgress={progress}
+              type={type}
             />
           )}
 
