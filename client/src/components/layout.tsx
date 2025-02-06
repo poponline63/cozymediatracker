@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Search } from "lucide-react";
+import { Search, UserCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -15,12 +15,25 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
         <div className="container mx-auto px-4">
-          <div className="h-16 flex items-center justify-between gap-4">
+          <div className="h-16 flex items-center gap-4">
             <Link href="/">
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
                 CozyWatch
               </h1>
             </Link>
+
+            <nav className="flex items-center gap-2 mr-4">
+              <Link href="/friends">
+                <Button variant="ghost" size="sm">
+                  Friends
+                </Button>
+              </Link>
+              <Link href="/profile">
+                <Button variant="ghost" size="sm">
+                  Watchlist
+                </Button>
+              </Link>
+            </nav>
 
             {showSearch && (
               <div className="flex-1 max-w-xl">
@@ -37,18 +50,9 @@ export default function Layout({ children, showSearch, onSearch, searchValue }: 
               </div>
             )}
 
-            <nav className="flex items-center gap-2">
-              <Link href="/friends">
-                <Button variant="ghost" size="sm">
-                  Friends
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button variant="ghost" size="sm">
-                  My Watchlist
-                </Button>
-              </Link>
-            </nav>
+            <Button variant="ghost" size="icon" className="ml-auto">
+              <UserCircle className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </header>
