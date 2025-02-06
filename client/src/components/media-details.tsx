@@ -100,7 +100,7 @@ export default function MediaDetails({
                 <img
                   src={details.Poster}
                   alt={details.Title}
-                  className="w-48 h-auto rounded-lg"
+                  className="w-48 aspect-[2/3] object-cover rounded-lg"
                 />
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{details.Plot}</p>
