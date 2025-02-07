@@ -4,3 +4,14 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.env
+*.log
+coverage/
+.next/
+build/
+.cache/
+.env*
+.vercel
+*.sqlite
+*.db
+drizzle/migrations/*.sql
