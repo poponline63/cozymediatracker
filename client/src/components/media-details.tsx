@@ -1,4 +1,3 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +57,10 @@ export default function MediaDetails({
     staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
+  const { data: customLists } = useQuery<CustomList[]>({
+    queryKey: ["/api/custom-lists"],
+  });
+
   const addToWatchlistMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/watchlist", {
@@ -96,10 +99,6 @@ export default function MediaDetails({
         description: `${details?.Title} has been added to your currently watching list`,
       });
     },
-  });
-
-  const { data: customLists } = useQuery<CustomList[]>({
-    queryKey: ["/api/custom-lists"],
   });
 
   const rateMutation = useMutation({
@@ -218,8 +217,8 @@ export default function MediaDetails({
                             </>
                           ) : (
                             <>
-                              <Clock className="h-4 w-4 mr-2" />
-                              Currently Watching
+                              <Play className="h-4 w-4 mr-2" />
+                              Start Watching
                             </>
                           )}
                         </Button>
@@ -241,54 +240,6 @@ export default function MediaDetails({
                           </span>
                         </div>
                       )}
-
-
-                      <div className="flex gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-1">
-                              <Star className="h-4 w-4 mr-2" />
-                              Rate
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {[1, 2, 3, 4, 5].map((rating) => (
-                              <DropdownMenuItem
-                                key={rating}
-                                onClick={() => rateMutation.mutate(rating)}
-                              >
-                                <div className="flex items-center">
-                                  {Array.from({ length: rating }).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className="h-4 w-4 text-yellow-400 fill-yellow-400"
-                                    />
-                                  ))}
-                                  <span className="ml-2">{rating} stars</span>
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-1">
-                              Add to List
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {customLists?.map((list) => (
-                              <DropdownMenuItem
-                                key={list.id}
-                                onClick={() => addToListMutation.mutate(list.id)}
-                              >
-                                {list.name}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -381,88 +332,6 @@ export default function MediaDetails({
                           <Label>Mark as Completed</Label>
                         </div>
                       )}
-                          {[1, 2, 3, 4, 5].map((rating) => (
-                            <Button
-                              key={rating}
-                              variant="outline"
-                              size="sm"
-                              className={watchlistData?.watchlistItem?.rating === rating ? "bg-primary text-primary-foreground" : ""}
-                              onClick={() => rateMutation.mutate(rating)}
-                            >
-                              <Star className={`h-4 w-4 ${watchlistData?.watchlistItem?.rating === rating ? "fill-primary-foreground" : "fill-none"}`} />
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Progress Tracking Section */}
-                      {details.Type === "series" ? (
-                        <div className="space-y-4">
-                          <div className="flex gap-4">
-                            <div className="flex-1 space-y-2">
-                              <Label>Season</Label>
-                              <Select
-                                value={currentSeason}
-                                onValueChange={setCurrentSeason}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue>Season {currentSeason}</SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from(
-                                    { length: parseInt(details.totalSeasons) },
-                                    (_, i) => (
-                                      <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                        Season {i + 1}
-                                      </SelectItem>
-                                    )
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex-1 space-y-2">
-                              <Label>Episode</Label>
-                              <Select
-                                value={selectedEpisode}
-                                onValueChange={setSelectedEpisode}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue>Episode {selectedEpisode}</SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {details.Episodes?.map((episode: any) => (
-                                    <SelectItem
-                                      key={episode.Episode}
-                                      value={episode.Episode.toString()}
-                                    >
-                                      Episode {episode.Episode}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <Button
-                            onClick={() => updateProgressMutation.mutate({
-                              currentSeason: parseInt(currentSeason),
-                              currentEpisode: parseInt(selectedEpisode),
-                            })}
-                            className="w-full"
-                          >
-                            Update Progress
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            checked={isCompleted}
-                            onCheckedChange={(checked) =>
-                              updateProgressMutation.mutate({ completed: checked })
-                            }
-                          />
-                          <Label>Mark as Completed</Label>
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -484,7 +353,8 @@ export default function MediaDetails({
                       />
                     </div>
                   )}
-                  {details.Type === "series" && details.Episodes && (
+
+                  {details.Type === "series" && details.Episodes && !isProfileView && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xl font-semibold">Episodes</h3>
@@ -539,6 +409,7 @@ export default function MediaDetails({
                       </div>
                     </div>
                   )}
+
                   <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                       <h4 className="font-semibold">Director</h4>
@@ -561,7 +432,7 @@ export default function MediaDetails({
                         <h4 className="font-semibold">Status</h4>
                         <p className="text-muted-foreground">
                           {new Date(details.Year.split("–")[1] || new Date()) >
-                            new Date()
+                          new Date()
                             ? "Currently Airing"
                             : "Ended"}
                         </p>
