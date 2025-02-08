@@ -137,6 +137,7 @@ export default function MediaDetails({
         completed,
         currentSeason: parseInt(currentSeason),
         currentEpisode: parseInt(selectedEpisode),
+        status: "watching", // Add the required status field
       });
       return res.json();
     },
