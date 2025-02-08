@@ -132,8 +132,13 @@ export default function MediaDetails({
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
-      if (!watchlistData?.watchlistItem?.id) throw new Error("Watchlist item not found");
+      const watchlistRes = await fetch(`/api/watchlist/${mediaId}`);
+      const watchlistItem = await watchlistRes.json();
       
+      if (!watchlistItem?.watchlistItem?.id) {
+        throw new Error("Watchlist item not found");
+      }
+
       // For movies, we want to set progress to 100 when completed
       const calculatedProgress = completed ? 100 : progress;
 
@@ -149,7 +154,7 @@ export default function MediaDetails({
         status: "watching",
       };
 
-      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistData.watchlistItem.id}`, payload);
+      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistItem.watchlistItem.id}`, payload);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to update progress");
