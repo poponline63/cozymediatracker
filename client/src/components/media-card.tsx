@@ -97,24 +97,45 @@ export default function MediaCard({
           )}
 
           {showAddToList && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full mt-2"
-              onClick={() =>
-                addMutation.mutate({
-                  mediaId: id,
-                  title,
-                  type,
-                  posterUrl,
-                  status: "plan_to_watch",
-                })
-              }
-              disabled={addMutation.isPending || watchlistId !== undefined}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {watchlistId ? 'In Watchlist' : 'Add to Watchlist'}
-            </Button>
+            <div className="space-y-2 mt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={() =>
+                  addMutation.mutate({
+                    mediaId: id,
+                    title,
+                    type,
+                    posterUrl,
+                    status: "plan_to_watch",
+                  })
+                }
+                disabled={addMutation.isPending || watchlistId !== undefined}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                {watchlistId ? 'In Watchlist' : 'Add to Watchlist'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addMutation.mutate({
+                    mediaId: id,
+                    title,
+                    type,
+                    posterUrl,
+                    status: "watching",
+                  });
+                }}
+                disabled={addMutation.isPending || watchlistId !== undefined}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Currently Watching
+              </Button>
+            </div>
           )}
 
           {watchlistId && !showAddToList && (
