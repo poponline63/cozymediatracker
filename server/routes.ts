@@ -11,6 +11,12 @@ export function registerRoutes(app: Express): Server {
     res.json(items);
   });
 
+  app.get("/api/currently-watching/:mediaId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const item = await storage.getCurrentlyWatchingByMediaId(req.user!.id, req.params.mediaId);
+    res.json({ watchingItem: item });
+  });
+
   app.post("/api/currently-watching", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -77,6 +83,12 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const items = await storage.getWatchlist(req.user!.id);
     res.json(items);
+  });
+
+  app.get("/api/watchlist/:mediaId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const item = await storage.getWatchlistByMediaId(req.user!.id, req.params.mediaId);
+    res.json({ watchlistItem: item });
   });
 
   app.post("/api/watchlist", async (req, res) => {
@@ -184,35 +196,6 @@ export function registerRoutes(app: Express): Server {
 
     const session = await storage.createWatchSession(req.user!.id, req.body);
     res.status(201).json(session);
-  });
-
-  app.patch("/api/watchlist/:id/rating", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { rating } = req.body;
-    if (typeof rating !== "number" || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Invalid rating" });
-    }
-
-    const item = await storage.updateWatchlistRating(
-      parseInt(req.params.id),
-      rating
-    );
-    res.json(item);
-  });
-
-  app.patch("/api/watchlist/:id/progress", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const { progress } = req.body;
-    if (typeof progress !== "number" || progress < 0 || progress > 100) {
-      return res.status(400).json({ message: "Invalid progress value" });
-    }
-
-    const item = await storage.updateWatchlistProgress(
-      parseInt(req.params.id),
-      progress
-    );
-    res.json(item);
   });
 
   // Custom Lists routes
