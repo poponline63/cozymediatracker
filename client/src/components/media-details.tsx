@@ -211,8 +211,8 @@ export default function MediaDetails({
                           </>
                         ) : (
                           <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Start Watching
+                            <Clock className="h-4 w-4 mr-2" />
+                            Currently Watching
                           </>
                         )}
                       </Button>
