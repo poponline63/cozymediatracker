@@ -132,7 +132,7 @@ export default function MediaDetails({
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistData?.watchlistItem?.id}`, {
+      const res = await apiRequest("PATCH", `/api/watchlist/${mediaId}`, {
         progress,
         completed,
         currentSeason: parseInt(currentSeason),
@@ -145,6 +145,13 @@ export default function MediaDetails({
       toast({
         title: "Progress updated",
         description: "Your watching progress has been saved",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update progress",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -210,7 +217,7 @@ export default function MediaDetails({
                           ) : (
                             <>
                               <Play className="h-4 w-4 mr-2" />
-                              Currently Watching
+                              Start Watching
                             </>
                           )}
                         </Button>
@@ -329,12 +336,13 @@ export default function MediaDetails({
                           </div>
                           <Button
                             onClick={() => updateProgressMutation.mutate({
-                              progress: (parseInt(selectedEpisode) / (details.Episodes?.length || 1)) * 100,
-                              completed: parseInt(selectedEpisode) === details.Episodes?.length
+                              progress: Math.round((parseInt(selectedEpisode) / details.Episodes.length) * 100),
+                              completed: parseInt(selectedEpisode) === details.Episodes.length
                             })}
                             className="w-full"
+                            disabled={updateProgressMutation.isPending}
                           >
-                            Update Progress
+                            {updateProgressMutation.isPending ? "Updating..." : "Update Progress"}
                           </Button>
                         </div>
                       ) : (
