@@ -100,6 +100,28 @@ export class DatabaseStorage implements IStorage {
     return watching;
   }
 
+  async getWatchlistItem(id: number): Promise<Watchlist | undefined> {
+    const [item] = await db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.id, id));
+    return item;
+  }
+
+  async startWatching(userId: number, data: InsertCurrentlyWatching): Promise<CurrentlyWatching> {
+    const [item] = await db
+      .insert(currentlyWatching)
+      .values({
+        ...data,
+        userId,
+        progress: 0,
+        startedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return item;
+  }
+
   async updateProgress(
     id: number,
     progress: number,
