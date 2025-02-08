@@ -1,10 +1,77 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertWatchlistSchema } from "@shared/schema";
-import { insertCustomListSchema } from "@shared/schema";
+import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
+  // Currently Watching routes
+  app.get("/api/currently-watching", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const items = await storage.getCurrentlyWatching(req.user!.id);
+    res.json(items);
+  });
+
+  app.post("/api/currently-watching", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const parsed = insertCurrentlyWatchingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+
+    const item = await storage.startWatching(req.user!.id, parsed.data);
+
+    // If the item was in the watchlist, remove it
+    const existingWatchlist = await storage.getWatchlistByMediaId(req.user!.id, parsed.data.mediaId);
+    if (existingWatchlist) {
+      await storage.removeFromWatchlist(existingWatchlist.id);
+    }
+
+    res.status(201).json(item);
+  });
+
+  app.patch("/api/currently-watching/:id/progress", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { progress, currentSeason, currentEpisode } = req.body;
+    if (typeof progress !== "number" || progress < 0 || progress > 100) {
+      return res.status(400).json({ message: "Invalid progress value" });
+    }
+
+    try {
+      const item = await storage.updateProgress(
+        parseInt(req.params.id),
+        progress,
+        { currentSeason, currentEpisode }
+      );
+      res.json(item);
+    } catch (error) {
+      res.status(404).json({ message: "Currently watching item not found" });
+    }
+  });
+
+  app.patch("/api/currently-watching/:id/complete", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const item = await storage.markAsCompleted(parseInt(req.params.id));
+      res.json(item);
+    } catch (error) {
+      res.status(404).json({ message: "Currently watching item not found" });
+    }
+  });
+
+  app.delete("/api/currently-watching/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      await storage.stopWatching(parseInt(req.params.id));
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(404).json({ message: "Currently watching item not found" });
+    }
+  });
+
   // Watchlist routes
   app.get("/api/watchlist", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -20,10 +87,14 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json(parsed.error);
     }
 
-    // Check if media already exists in user's watchlist
-    const existing = await storage.getWatchlistByMediaId(req.user!.id, parsed.data.mediaId);
-    if (existing) {
+    // Check if media already exists in user's watchlist or currently watching
+    const existingWatchlist = await storage.getWatchlistByMediaId(req.user!.id, parsed.data.mediaId);
+    const existingCurrentlyWatching = await storage.getCurrentlyWatchingByMediaId(req.user!.id, parsed.data.mediaId);
+    if (existingWatchlist) {
       return res.status(400).json({ message: "This media is already in your watchlist" });
+    }
+    if (existingCurrentlyWatching) {
+      return res.status(400).json({ message: "This media is already in your currently watching list" });
     }
 
     const item = await storage.addToWatchlist(req.user!.id, parsed.data);

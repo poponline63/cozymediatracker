@@ -17,7 +17,6 @@ import { Loader2, Star, Plus, Play, Clock } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,11 +26,6 @@ interface MediaDetailsProps {
   isOpen: boolean;
   onClose: () => void;
   isProfileView?: boolean;
-}
-
-interface CustomList {
-  id: number;
-  name: string;
 }
 
 export default function MediaDetails({
@@ -57,17 +51,24 @@ export default function MediaDetails({
     staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
-  const { data: customLists } = useQuery<CustomList[]>({
-    queryKey: ["/api/custom-lists"],
-    enabled: !isProfileView,
-  });
-
   const { data: watchlistData } = useQuery({
     queryKey: ["/api/watchlist", mediaId],
     queryFn: async () => {
       const res = await fetch(`/api/watchlist/${mediaId}`);
       if (!res.ok) {
         throw new Error("Failed to fetch watchlist item");
+      }
+      return res.json();
+    },
+    enabled: !!mediaId,
+  });
+
+  const { data: currentlyWatching } = useQuery({
+    queryKey: ["/api/currently-watching", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/currently-watching/${mediaId}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch currently watching item");
       }
       return res.json();
     },
@@ -81,7 +82,6 @@ export default function MediaDetails({
         title: details?.Title,
         type: details?.Type,
         posterUrl: details?.Poster,
-        status: "plan_to_watch",
       });
       return res.json();
     },
@@ -96,17 +96,17 @@ export default function MediaDetails({
 
   const startWatchingMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/watchlist", {
+      const res = await apiRequest("POST", "/api/currently-watching", {
         mediaId,
         title: details?.Title,
         type: details?.Type,
         posterUrl: details?.Poster,
-        status: "watching",
+        totalSeasons: details?.totalSeasons,
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Started watching",
         description: `${details?.Title} has been added to your currently watching list`,
@@ -114,67 +114,59 @@ export default function MediaDetails({
     },
   });
 
-  const rateMutation = useMutation({
-    mutationFn: async (rating: number) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${mediaId}`, {
-        rating,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      toast({
-        title: "Rating updated",
-        description: "Your rating has been saved",
-      });
-    },
-  });
-
   const updateProgressMutation = useMutation({
-    mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
-      if (!watchlistData?.watchlistItem?.id) {
-        throw new Error("Watchlist item not found");
+    mutationFn: async ({ progress, currentSeason, currentEpisode }: { progress: number; currentSeason?: number; currentEpisode?: number }) => {
+      if (!currentlyWatching?.id) {
+        throw new Error("Currently watching item not found");
       }
 
-      // For movies, we want to set progress to 100 when completed
-      const calculatedProgress = completed ? 100 : progress;
-
-      const payload = {
-        progress: calculatedProgress,
-        completed,
-        ...(details?.Type === "series" ? {
-          currentSeason: parseInt(currentSeason),
-          currentEpisode: parseInt(selectedEpisode),
-        } : {}),
-        status: watchlistData.watchlistItem.status
-      };
-
-      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistData.watchlistItem.id}`, payload);
+      const res = await apiRequest(
+        "PATCH",
+        `/api/currently-watching/${currentlyWatching.id}/progress`,
+        { progress, currentSeason, currentEpisode }
+      );
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to update progress");
+        throw new Error("Failed to update progress");
       }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Progress updated",
         description: "Your watching progress has been saved",
       });
     },
-    onError: (error: Error) => {
+  });
+
+  const markCompletedMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentlyWatching?.id) {
+        throw new Error("Currently watching item not found");
+      }
+
+      const res = await apiRequest(
+        "PATCH",
+        `/api/currently-watching/${currentlyWatching.id}/complete`,
+        {}
+      );
+      if (!res.ok) {
+        throw new Error("Failed to mark as completed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
-        title: "Failed to update progress",
-        description: error.message,
-        variant: "destructive",
+        title: "Marked as completed",
+        description: `${details?.Title} has been marked as completed`,
       });
     },
   });
 
   const isInWatchlist = watchlistData?.watchlistItem != null;
-  const isWatching = watchlistData?.watchlistItem?.status === "watching";
-  const isCompleted = watchlistData?.watchlistItem?.completed;
+  const isWatching = currentlyWatching != null;
+  const isCompleted = currentlyWatching?.isCompleted;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -239,7 +231,7 @@ export default function MediaDetails({
                         </Button>
                         <Button
                           onClick={() => addToWatchlistMutation.mutate()}
-                          disabled={addToWatchlistMutation.isPending || isInWatchlist}
+                          disabled={addToWatchlistMutation.isPending || isInWatchlist || isWatching}
                           className="flex-1"
                           variant="secondary"
                         >
@@ -247,58 +239,9 @@ export default function MediaDetails({
                           Add to Watchlist
                         </Button>
                       </div>
-
-                      <div className="flex gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-1">
-                              <Star className="h-4 w-4 mr-2" />
-                              Rate
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {[1, 2, 3, 4, 5].map((rating) => (
-                              <DropdownMenuItem
-                                key={rating}
-                                onClick={() => rateMutation.mutate(rating)}
-                              >
-                                <div className="flex items-center">
-                                  {Array.from({ length: rating }).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className="h-4 w-4 text-yellow-400 fill-yellow-400"
-                                    />
-                                  ))}
-                                  <span className="ml-2">{rating} stars</span>
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-
-
-                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* Rating Section */}
-                      <div className="space-y-2">
-                        <Label>Your Rating</Label>
-                        <div className="flex gap-2">
-                          {[1, 2, 3, 4, 5].map((rating) => (
-                            <Button
-                              key={rating}
-                              variant="outline"
-                              size="sm"
-                              className={watchlistData?.watchlistItem?.rating === rating ? "bg-primary text-primary-foreground" : ""}
-                              onClick={() => rateMutation.mutate(rating)}
-                            >
-                              <Star className={`h-4 w-4 ${watchlistData?.watchlistItem?.rating === rating ? "fill-primary-foreground" : "fill-none"}`} />
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
                       {/* Progress Tracking Section */}
                       {details.Type === "series" ? (
                         <div className="space-y-4">
@@ -310,7 +253,7 @@ export default function MediaDetails({
                                 onValueChange={(value) => {
                                   setCurrentSeason(value);
                                   setSelectedEpisode("1");
-                                  queryClient.invalidateQueries(["/api/media", mediaId, value]);
+                                  queryClient.invalidateQueries({ queryKey: ["/api/media", mediaId, value] });
                                 }}
                               >
                                 <SelectTrigger>
@@ -351,12 +294,16 @@ export default function MediaDetails({
                             </div>
                           </div>
                           <Button
-                            onClick={() => updateProgressMutation.mutate({
-                              progress: Math.round((parseInt(selectedEpisode) / details.Episodes.length) * 100),
-                              completed: parseInt(selectedEpisode) === details.Episodes.length
-                            })}
+                            onClick={() => {
+                              const progress = Math.round((parseInt(selectedEpisode) / details.Episodes.length) * 100);
+                              updateProgressMutation.mutate({
+                                progress,
+                                currentSeason: parseInt(currentSeason),
+                                currentEpisode: parseInt(selectedEpisode)
+                              });
+                            }}
                             className="w-full"
-                            disabled={updateProgressMutation.isPending}
+                            disabled={updateProgressMutation.isPending || !isWatching}
                           >
                             {updateProgressMutation.isPending ? "Updating..." : "Update Progress"}
                           </Button>
@@ -366,8 +313,9 @@ export default function MediaDetails({
                           <Switch
                             checked={isCompleted}
                             onCheckedChange={(checked) =>
-                              updateProgressMutation.mutate({ completed: checked, progress: checked ? 100 : 0 })
+                              checked ? markCompletedMutation.mutate() : null
                             }
+                            disabled={!isWatching}
                           />
                           <Label>Mark as Completed</Label>
                         </div>
@@ -397,7 +345,7 @@ export default function MediaDetails({
                         <h4 className="font-semibold">Status</h4>
                         <p className="text-muted-foreground">
                           {new Date(details.Year.split("–")[1] || new Date()) >
-                            new Date()
+                          new Date()
                             ? "Currently Airing"
                             : "Ended"}
                         </p>
