@@ -200,16 +200,25 @@ export default function MediaDetails({
                     <div className="flex gap-2">
                       <Button
                         onClick={() => startWatchingMutation.mutate()}
-                        disabled={startWatchingMutation.isPending}
+                        disabled={startWatchingMutation.isPending || isWatching}
                         className="flex-1"
-                        variant="default"
+                        variant={isWatching ? "secondary" : "default"}
                       >
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Watching
+                        {isWatching ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2" />
+                            Currently Watching
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Start Watching
+                          </>
+                        )}
                       </Button>
                       <Button
                         onClick={() => addToWatchlistMutation.mutate()}
-                        disabled={addToWatchlistMutation.isPending}
+                        disabled={addToWatchlistMutation.isPending || isInWatchlist}
                         className="flex-1"
                         variant="secondary"
                       >
@@ -217,16 +226,15 @@ export default function MediaDetails({
                         Add to Watchlist
                       </Button>
                     </div>
-                    {isInWatchlist ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
-                          <Clock className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-medium">
-                            {isWatching ? "Currently Watching" : "In Watchlist"}
-                          </span>
-                        </div>
+                    {isInWatchlist && (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">
+                          {isWatching ? "Currently Watching" : "In Watchlist"}
+                        </span>
                       </div>
-                    ) : null}
+                    )}
+
 
                     <div className="flex gap-2">
                       <DropdownMenu>
