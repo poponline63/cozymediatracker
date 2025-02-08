@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Star, Plus } from "lucide-react";
+import { Loader2, Star, Plus, Play, Clock } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -73,6 +73,26 @@ export default function MediaDetails({
     },
   });
 
+  const startWatchingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        mediaId,
+        title: details?.Title,
+        type: details?.Type,
+        posterUrl: details?.Poster,
+        status: "watching",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Started watching",
+        description: `${details?.Title} has been added to your currently watching list`,
+      });
+    },
+  });
+
   const { data: customLists } = useQuery<CustomList[]>({
     queryKey: ["/api/custom-lists"],
   });
@@ -111,7 +131,7 @@ export default function MediaDetails({
     },
   });
 
-  const { data } = useQuery({
+  const { data: watchlistData } = useQuery({
     queryKey: ["/api/watchlist", mediaId],
     queryFn: async () => {
       const res = await fetch(`/api/watchlist/${mediaId}`);
@@ -123,7 +143,6 @@ export default function MediaDetails({
     enabled: !!mediaId,
   });
 
-
   const updateProgressMutation = useMutation({
     mutationFn: async ({ id, progress }: { id: number; progress: number }) => {
       const res = await apiRequest("PATCH", `/api/watchlist/${id}`, { progress });
@@ -133,6 +152,9 @@ export default function MediaDetails({
       return res.json();
     },
   });
+
+  const isInWatchlist = watchlistData?.watchlistItem != null;
+  const isWatching = watchlistData?.watchlistItem?.status === "watching";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -170,22 +192,45 @@ export default function MediaDetails({
                   alt={details.Title}
                   className="w-48 aspect-[2/3] object-cover rounded-lg"
                 />
-                <div className="space-y-4">
+                <div className="space-y-4 flex-1">
                   <p className="text-muted-foreground">{details.Plot}</p>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => addToWatchlistMutation.mutate()}
-                        disabled={addToWatchlistMutation.isPending}
-                        className="flex-1"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add to Watchlist
-                      </Button>
 
+                  {/* Action Buttons Section */}
+                  <div className="space-y-3">
+                    {!isInWatchlist ? (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => startWatchingMutation.mutate()}
+                          disabled={startWatchingMutation.isPending}
+                          className="flex-1"
+                          variant="default"
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Watching
+                        </Button>
+                        <Button
+                          onClick={() => addToWatchlistMutation.mutate()}
+                          disabled={addToWatchlistMutation.isPending}
+                          className="flex-1"
+                          variant="secondary"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add to Watchlist
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">
+                          {isWatching ? "Currently Watching" : "In Watchlist"}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline">
+                          <Button variant="outline" className="flex-1">
                             <Star className="h-4 w-4 mr-2" />
                             Rate
                           </Button>
@@ -209,45 +254,47 @@ export default function MediaDetails({
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" className="w-full">
-                          Add to List
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {customLists?.map((list) => (
-                          <DropdownMenuItem
-                            key={list.id}
-                            onClick={() => addToListMutation.mutate(list.id)}
-                          >
-                            {list.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    {data?.watchlistItem && data.watchlistItem.status === "watching" && (
-                      <div className="mt-4 p-4 border rounded-lg">
-                        <h3 className="text-sm font-medium mb-4">Watch Timer</h3>
-                        <WatchTimer 
-                          mediaId={mediaId}
-                          watchlistId={data.watchlistItem.id}
-                          totalDuration={parseInt(details.Runtime)} 
-                          onProgressUpdate={(progress) => {
-                            if (progress > data.watchlistItem.progress) {
-                              updateProgressMutation.mutate({
-                                id: data.watchlistItem.id,
-                                progress,
-                              });
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="flex-1">
+                            Add to List
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {customLists?.map((list) => (
+                            <DropdownMenuItem
+                              key={list.id}
+                              onClick={() => addToListMutation.mutate(list.id)}
+                            >
+                              {list.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  {isWatching && watchlistData?.watchlistItem && (
+                    <div className="mt-4 p-4 border rounded-lg bg-card">
+                      <h3 className="text-sm font-medium mb-4">Watch Timer</h3>
+                      <WatchTimer 
+                        mediaId={mediaId}
+                        watchlistId={watchlistData.watchlistItem.id}
+                        totalDuration={parseInt(details.Runtime)} 
+                        onProgressUpdate={(progress) => {
+                          if (progress > (watchlistData.watchlistItem?.progress ?? 0)) {
+                            updateProgressMutation.mutate({
+                              id: watchlistData.watchlistItem.id,
+                              progress,
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                       <h4 className="font-semibold">Director</h4>
                       <p className="text-muted-foreground">{details.Director}</p>
