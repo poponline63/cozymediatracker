@@ -132,29 +132,24 @@ export default function MediaDetails({
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
-      const watchlistRes = await fetch(`/api/watchlist/${mediaId}`);
-      const watchlistItem = await watchlistRes.json();
-
-      if (!watchlistItem?.watchlistItem?.id) {
+      if (!watchlistData?.watchlistItem?.id) {
         throw new Error("Watchlist item not found");
       }
 
       // For movies, we want to set progress to 100 when completed
       const calculatedProgress = completed ? 100 : progress;
 
-      const payload = details?.Type === "series" ? {
+      const payload = {
         progress: calculatedProgress,
         completed,
-        currentSeason: parseInt(currentSeason),
-        currentEpisode: parseInt(selectedEpisode),
-        status: "watching",
-      } : {
-        progress: calculatedProgress,
-        completed,
-        status: "watching",
+        ...(details?.Type === "series" ? {
+          currentSeason: parseInt(currentSeason),
+          currentEpisode: parseInt(selectedEpisode),
+        } : {}),
+        status: watchlistData.watchlistItem.status
       };
 
-      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistItem.watchlistItem.id}`, payload);
+      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistData.watchlistItem.id}`, payload);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to update progress");
