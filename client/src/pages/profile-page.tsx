@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
-import type { Watchlist } from "@shared/schema";
+import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 import { BarChart3, User, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useState } from "react";
@@ -29,12 +29,15 @@ interface Statistics {
 }
 
 export default function ProfilePage() {
-  const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
+  const { data: watchlist, isLoading: isLoadingWatchlist } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
   });
 
+  const { data: currentlyWatching, isLoading: isLoadingCurrentlyWatching } = useQuery<CurrentlyWatching[]>({
+    queryKey: ["/api/currently-watching"],
+  });
+
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
-  const watching = watchlist?.filter((item) => item.status === "watching") || [];
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
 
   // Statistics queries
@@ -43,9 +46,9 @@ export default function ProfilePage() {
   });
 
   // Calculate completion statistics
-  const totalItems = watching.length;
-  const completedItems = watching.filter(item => item.progress === 100).length;
-  const inProgressItems = watching.filter(item => item.progress && item.progress > 0 && item.progress < 100).length;
+  const totalItems = currentlyWatching?.length || 0;
+  const completedItems = currentlyWatching?.filter(item => item.isCompleted).length || 0;
+  const inProgressItems = currentlyWatching?.filter(item => !item.isCompleted && item.progress > 0).length || 0;
   const notStartedItems = totalItems - completedItems - inProgressItems;
 
   const chartData = [
@@ -67,7 +70,7 @@ export default function ProfilePage() {
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
             <div className="flex w-max space-x-4 p-4">
-              {watching.map((item) => (
+              {currentlyWatching?.map((item) => (
                 <div 
                   key={item.id} 
                   className="w-[150px] cursor-pointer"
@@ -169,7 +172,7 @@ export default function ProfilePage() {
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
               <TabsTrigger value="watching">
-                Currently Watching ({watching.length})
+                Currently Watching ({currentlyWatching?.length || 0})
               </TabsTrigger>
               <TabsTrigger value="plan_to_watch">
                 Plan to Watch ({planToWatch.length})
@@ -178,8 +181,8 @@ export default function ProfilePage() {
 
             <TabsContent value="watching" className="space-y-4">
               <MovieGrid
-                items={watching}
-                isLoading={isLoading}
+                items={currentlyWatching}
+                isLoading={isLoadingCurrentlyWatching}
                 showProgress
                 showRemove
               />
@@ -188,7 +191,7 @@ export default function ProfilePage() {
             <TabsContent value="plan_to_watch" className="space-y-4">
               <MovieGrid
                 items={planToWatch}
-                isLoading={isLoading}
+                isLoading={isLoadingWatchlist}
                 showProgress
                 showRemove
               />
