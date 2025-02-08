@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -18,8 +17,10 @@ import { Loader2, Star, Plus, Play, Clock } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MediaDetailsProps {
   mediaId: string;
@@ -56,6 +57,11 @@ export default function MediaDetails({
     staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
+  const { data: customLists } = useQuery<CustomList[]>({
+    queryKey: ["/api/custom-lists"],
+    enabled: !isProfileView,
+  });
+
   const { data: watchlistData } = useQuery({
     queryKey: ["/api/watchlist", mediaId],
     queryFn: async () => {
@@ -66,6 +72,46 @@ export default function MediaDetails({
       return res.json();
     },
     enabled: !!mediaId,
+  });
+
+  const addToWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        mediaId,
+        title: details?.Title,
+        type: details?.Type,
+        posterUrl: details?.Poster,
+        status: "plan_to_watch",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Added to watchlist",
+        description: `${details?.Title} has been added to your watchlist`,
+      });
+    },
+  });
+
+  const startWatchingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/watchlist", {
+        mediaId,
+        title: details?.Title,
+        type: details?.Type,
+        posterUrl: details?.Poster,
+        status: "watching",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      toast({
+        title: "Started watching",
+        description: `${details?.Title} has been added to your currently watching list`,
+      });
+    },
   });
 
   const rateMutation = useMutation({
@@ -103,6 +149,8 @@ export default function MediaDetails({
     },
   });
 
+  const isInWatchlist = watchlistData?.watchlistItem != null;
+  const isWatching = watchlistData?.watchlistItem?.status === "watching";
   const isCompleted = watchlistData?.watchlistItem?.completed;
 
   return (
@@ -144,7 +192,71 @@ export default function MediaDetails({
                 <div className="space-y-4 flex-1">
                   <p className="text-muted-foreground">{details.Plot}</p>
 
-                  {isProfileView && (
+                  {/* Action Buttons Section */}
+                  {!isProfileView ? (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => startWatchingMutation.mutate()}
+                          disabled={startWatchingMutation.isPending || isWatching}
+                          className="flex-1"
+                          variant={isWatching ? "secondary" : "default"}
+                        >
+                          {isWatching ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Currently Watching
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-2" />
+                              Start Watching
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => addToWatchlistMutation.mutate()}
+                          disabled={addToWatchlistMutation.isPending || isInWatchlist}
+                          className="flex-1"
+                          variant="secondary"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add to Watchlist
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="flex-1">
+                              <Star className="h-4 w-4 mr-2" />
+                              Rate
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <DropdownMenuItem
+                                key={rating}
+                                onClick={() => rateMutation.mutate(rating)}
+                              >
+                                <div className="flex items-center">
+                                  {Array.from({ length: rating }).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className="h-4 w-4 text-yellow-400 fill-yellow-400"
+                                    />
+                                  ))}
+                                  <span className="ml-2">{rating} stars</span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+
+                      </div>
+                    </div>
+                  ) : (
                     <div className="space-y-4">
                       {/* Rating Section */}
                       <div className="space-y-2">
@@ -268,6 +380,41 @@ export default function MediaDetails({
                       </div>
                     )}
                   </div>
+
+                  {/* Episodes List Section */}
+                  {details.Type === "series" && details.Episodes && (
+                    <div className="space-y-4 mt-6">
+                      <h3 className="text-lg font-semibold">Episodes</h3>
+                      <div className="space-y-3">
+                        {details.Episodes.map((episode: any) => (
+                          <div
+                            key={episode.imdbID}
+                            className="p-4 rounded-lg border bg-card/50"
+                          >
+                            <div className="flex justify-between items-center gap-4">
+                              <div>
+                                <h4 className="font-medium">
+                                  <span className="text-lg">
+                                    {episode.Episode}.{" "}
+                                  </span>
+                                  {episode.Title}
+                                </h4>
+                                {episode.imdbRating && (
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                    <span>{episode.imdbRating}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {episode.Released}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
