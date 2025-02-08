@@ -38,7 +38,12 @@ export default function ProfilePage() {
   });
 
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
-  const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
+
+  // Ensure we're explicitly setting the status when filtering
+  const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
+    ...item,
+    status: "plan_to_watch" // Explicitly set status
+  })) || [];
 
   // Statistics queries
   const { data: stats } = useQuery<Statistics>({
@@ -48,7 +53,7 @@ export default function ProfilePage() {
   // Calculate completion statistics
   const totalItems = currentlyWatching?.length || 0;
   const completedItems = currentlyWatching?.filter(item => item.isCompleted).length || 0;
-  const inProgressItems = currentlyWatching?.filter(item => !item.isCompleted && item.progress > 0).length || 0;
+  const inProgressItems = currentlyWatching?.filter(item => !item.isCompleted && (item.progress || 0) > 0).length || 0;
   const notStartedItems = totalItems - completedItems - inProgressItems;
 
   const chartData = [
@@ -71,8 +76,8 @@ export default function ProfilePage() {
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
             <div className="flex w-max space-x-4 p-4">
               {currentlyWatching?.map((item) => (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className="w-[150px] cursor-pointer"
                   onClick={() => setSelectedMediaId(item.mediaId)}
                 >
@@ -194,6 +199,7 @@ export default function ProfilePage() {
                 isLoading={isLoadingWatchlist}
                 showProgress
                 showRemove
+                onItemClick={(id) => setSelectedMediaId(id)}
               />
             </TabsContent>
           </Tabs>

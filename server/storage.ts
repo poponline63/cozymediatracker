@@ -40,6 +40,7 @@ export interface IStorage {
   getWatchlistByMediaId(userId: number, mediaId: string): Promise<Watchlist | undefined>;
   addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
+  getWatchlistItem(id: number): Promise<Watchlist | undefined>;
 
   // Statistics methods
   getUserStatistics(userId: number): Promise<any>;
@@ -92,22 +93,6 @@ export class DatabaseStorage implements IStorage {
     return watching;
   }
 
-  async startWatching(userId: number, item: InsertCurrentlyWatching): Promise<CurrentlyWatching> {
-    const [watching] = await db
-      .insert(currentlyWatching)
-      .values({ ...item, userId })
-      .returning();
-    return watching;
-  }
-
-  async getWatchlistItem(id: number): Promise<Watchlist | undefined> {
-    const [item] = await db
-      .select()
-      .from(watchlist)
-      .where(eq(watchlist.id, id));
-    return item;
-  }
-
   async startWatching(userId: number, data: InsertCurrentlyWatching): Promise<CurrentlyWatching> {
     const [item] = await db
       .insert(currentlyWatching)
@@ -125,7 +110,7 @@ export class DatabaseStorage implements IStorage {
   async updateProgress(
     id: number,
     progress: number,
-    seasonEpisodeInfo?: { currentSeason?: number, currentEpisode?: number }
+    seasonEpisodeInfo?: { currentSeason?: number; currentEpisode?: number }
   ): Promise<CurrentlyWatching> {
     const [updated] = await db
       .update(currentlyWatching)
@@ -185,6 +170,14 @@ export class DatabaseStorage implements IStorage {
 
   async removeFromWatchlist(id: number): Promise<void> {
     await db.delete(watchlist).where(eq(watchlist.id, id));
+  }
+
+  async getWatchlistItem(id: number): Promise<Watchlist | undefined> {
+    const [item] = await db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.id, id));
+    return item;
   }
 
   async getUserStatistics(userId: number) {

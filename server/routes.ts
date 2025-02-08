@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/schema";
+import { insertWatchlistSchema, insertCurrentlyWatchingSchema, insertCustomListSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Currently Watching routes
@@ -130,22 +130,21 @@ export function registerRoutes(app: Express): Server {
 
       if (req.body.status === "watching") {
         // Move to currently watching
-        await storage.startWatching(req.user!.id, {
+        const watching = await storage.startWatching(req.user!.id, {
           mediaId: watchlistItem.mediaId,
           title: watchlistItem.title,
           type: watchlistItem.type,
           posterUrl: watchlistItem.posterUrl,
         });
-        // Remove from watchlist
+        // Remove from watchlist after successful transition
         await storage.removeFromWatchlist(parseInt(req.params.id));
-        res.json({ status: "moved_to_watching" });
+        res.json({ status: "moved_to_watching", watching });
       } else {
-        // Regular status update
-        const item = await storage.updateWatchlistItem(parseInt(req.params.id), req.body);
-        res.json(item);
+        res.status(400).json({ message: "Invalid status update" });
       }
     } catch (error) {
-      res.status(404).json({ message: "Failed to update status" });
+      console.error("Error updating watchlist status:", error);
+      res.status(500).json({ message: "Failed to update status" });
     }
   });
 
