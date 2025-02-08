@@ -13,7 +13,7 @@ export default function TabNavigation() {
   };
 
   const tabs = [
-    { icon: User, label: "Profile", href: "/" },
+    { icon: User, label: "Profile", href: "/profile" },
     { icon: Search, label: "Search", href: "/search" },
     { icon: Users, label: "Friends", href: "/friends" },
     { icon: BarChart3, label: "Stats", href: "/statistics" },

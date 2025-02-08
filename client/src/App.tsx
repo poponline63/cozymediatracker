@@ -6,6 +6,7 @@ import HomePage from "./pages/home-page";
 import SearchPage from "./pages/search-page";
 import FriendsPage from "./pages/friends-page";
 import StatisticsPage from "./pages/statistics-page";
+import ProfilePage from "./pages/profile-page";
 import NotFound from "./pages/not-found";
 import AuthPage from "./pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -25,6 +26,7 @@ function Router() {
         <ProtectedRoute path="/search" component={SearchPage} />
         <ProtectedRoute path="/friends" component={FriendsPage} />
         <ProtectedRoute path="/statistics" component={StatisticsPage} />
+        <ProtectedRoute path="/profile" component={ProfilePage} />
         <Route component={NotFound} />
       </Switch>
       {showNav && <TabNavigation />}
