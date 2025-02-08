@@ -14,14 +14,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Star, Plus, Play, Clock, Check } from "lucide-react";
+import { Loader2, Star, Plus, Play, Clock } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import WatchTimer from "./watch-timer";
 
 interface MediaDetailsProps {
   mediaId: string;
@@ -58,48 +56,16 @@ export default function MediaDetails({
     staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
-  const { data: customLists } = useQuery<CustomList[]>({
-    queryKey: ["/api/custom-lists"],
-  });
-
-  const addToWatchlistMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/watchlist", {
-        mediaId,
-        title: details?.Title,
-        type: details?.Type,
-        posterUrl: details?.Poster,
-        status: "plan_to_watch",
-      });
+  const { data: watchlistData } = useQuery({
+    queryKey: ["/api/watchlist", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/watchlist/${mediaId}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch watchlist item");
+      }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      toast({
-        title: "Added to watchlist",
-        description: `${details?.Title} has been added to your watchlist`,
-      });
-    },
-  });
-
-  const startWatchingMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/watchlist", {
-        mediaId,
-        title: details?.Title,
-        type: details?.Type,
-        posterUrl: details?.Poster,
-        status: "watching",
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      toast({
-        title: "Started watching",
-        description: `${details?.Title} has been added to your currently watching list`,
-      });
-    },
+    enabled: !!mediaId,
   });
 
   const rateMutation = useMutation({
@@ -114,24 +80,6 @@ export default function MediaDetails({
       toast({
         title: "Rating updated",
         description: "Your rating has been saved",
-      });
-    },
-  });
-
-  const addToListMutation = useMutation({
-    mutationFn: async (listId: number) => {
-      const res = await apiRequest("POST", `/api/custom-lists/${listId}/items`, {
-        mediaId,
-        title: details?.Title,
-        posterUrl: details?.Poster,
-      });
-      return res.json();
-    },
-    onSuccess: (_, listId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/custom-lists", listId] });
-      toast({
-        title: "Added to list",
-        description: "The item has been added to your list",
       });
     },
   });
@@ -155,20 +103,6 @@ export default function MediaDetails({
     },
   });
 
-  const { data: watchlistData } = useQuery({
-    queryKey: ["/api/watchlist", mediaId],
-    queryFn: async () => {
-      const res = await fetch(`/api/watchlist/${mediaId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch watchlist item");
-      }
-      return res.json();
-    },
-    enabled: !!mediaId,
-  });
-
-  const isInWatchlist = watchlistData?.watchlistItem != null;
-  const isWatching = watchlistData?.watchlistItem?.status === "watching";
   const isCompleted = watchlistData?.watchlistItem?.completed;
 
   return (
@@ -205,100 +139,12 @@ export default function MediaDetails({
                 <img
                   src={details.Poster}
                   alt={details.Title}
-                  className="w-48 aspect-[2/3] object-cover rounded-lg"
+                  className="w-48 h-72 object-contain rounded-lg bg-secondary/50"
                 />
                 <div className="space-y-4 flex-1">
                   <p className="text-muted-foreground">{details.Plot}</p>
 
-                  {/* Action Buttons Section */}
-                  {!isProfileView ? (
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => startWatchingMutation.mutate()}
-                          disabled={startWatchingMutation.isPending || isWatching}
-                          className="flex-1"
-                          variant={isWatching ? "secondary" : "default"}
-                        >
-                          {isWatching ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-2" />
-                              Currently Watching
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-2" />
-                              Start Watching
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => addToWatchlistMutation.mutate()}
-                          disabled={addToWatchlistMutation.isPending || isInWatchlist}
-                          className="flex-1"
-                          variant="secondary"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add to Watchlist
-                        </Button>
-                      </div>
-                      {isInWatchlist && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
-                          <Clock className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-medium">
-                            {isWatching ? "Currently Watching" : "In Watchlist"}
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-1">
-                              <Star className="h-4 w-4 mr-2" />
-                              Rate
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {[1, 2, 3, 4, 5].map((rating) => (
-                              <DropdownMenuItem
-                                key={rating}
-                                onClick={() => rateMutation.mutate(rating)}
-                              >
-                                <div className="flex items-center">
-                                  {Array.from({ length: rating }).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className="h-4 w-4 text-yellow-400 fill-yellow-400"
-                                    />
-                                  ))}
-                                  <span className="ml-2">{rating} stars</span>
-                                </div>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-1">
-                              Add to List
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {customLists?.map((list) => (
-                              <DropdownMenuItem
-                                key={list.id}
-                                onClick={() => addToListMutation.mutate(list.id)}
-                              >
-                                {list.name}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ) : (
+                  {isProfileView && (
                     <div className="space-y-4">
                       {/* Rating Section */}
                       <div className="space-y-2">
@@ -389,81 +235,6 @@ export default function MediaDetails({
                           <Label>Mark as Completed</Label>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* Watch Timer Section */}
-                  {isWatching && watchlistData?.watchlistItem && (
-                    <div className="mt-4 p-4 border rounded-lg bg-card">
-                      <h3 className="text-sm font-medium mb-4">Watch Timer</h3>
-                      <WatchTimer
-                        mediaId={mediaId}
-                        watchlistId={watchlistData.watchlistItem.id}
-                        totalDuration={parseInt(details.Runtime)}
-                        onProgressUpdate={(progress) => {
-                          if (progress > (watchlistData.watchlistItem?.progress ?? 0)) {
-                            updateProgressMutation.mutate({
-                              progress,
-                            });
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {details.Type === "series" && details.Episodes && !isProfileView && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-semibold">Episodes</h3>
-                        {details.totalSeasons && (
-                          <Select
-                            value={currentSeason}
-                            onValueChange={setCurrentSeason}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue>Season {currentSeason}</SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Array.from(
-                                { length: parseInt(details.totalSeasons) },
-                                (_, i) => (
-                                  <SelectItem key={i + 1} value={(i + 1).toString()}>
-                                    Season {i + 1}
-                                  </SelectItem>
-                                )
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                      <div className="space-y-3">
-                        {details.Episodes.map((episode: any) => (
-                          <div
-                            key={episode.imdbID}
-                            className="p-4 rounded-lg border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-                          >
-                            <div className="flex justify-between items-center gap-4">
-                              <div>
-                                <h4 className="font-medium flex items-baseline gap-2">
-                                  <span className="text-lg">
-                                    {episode.Episode}.
-                                  </span>
-                                  <span>{episode.Title}</span>
-                                </h4>
-                                {episode.imdbRating && (
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                    <span>{episode.imdbRating}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground shrink-0">
-                                {episode.Released}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   )}
 
