@@ -134,7 +134,7 @@ export default function MediaDetails({
     mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
       const watchlistRes = await fetch(`/api/watchlist/${mediaId}`);
       const watchlistItem = await watchlistRes.json();
-      
+
       if (!watchlistItem?.watchlistItem?.id) {
         throw new Error("Watchlist item not found");
       }
