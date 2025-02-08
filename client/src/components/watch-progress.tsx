@@ -37,9 +37,12 @@ export default function WatchProgress({
     queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
       const res = await fetch(`/api/media/${mediaId}?season=${currentSeason}`);
+      if (!res.ok) throw new Error('Failed to fetch episodes');
       return res.json();
     },
     enabled: type === "series",
+    staleTime: 0,
+    cacheTime: 0
   });
 
   const updateMutation = useMutation({
