@@ -179,6 +179,15 @@ export default function MediaDetails({
                     </div>
                   </>
                 )}
+                {isProfileView && watchlistData?.watchlistItem?.rating && (
+                  <>
+                    <span>•</span>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      <span>Your rating: {watchlistData.watchlistItem.rating}/5</span>
+                    </div>
+                  </>
+                )}
               </div>
             </DialogHeader>
 
@@ -209,8 +218,8 @@ export default function MediaDetails({
                             </>
                           ) : (
                             <>
-                              <Play className="h-4 w-4 mr-2" />
-                              Start Watching
+                              <Clock className="h-4 w-4 mr-2" />
+                              Currently Watching
                             </>
                           )}
                         </Button>
@@ -287,6 +296,91 @@ export default function MediaDetails({
                       <div className="space-y-2">
                         <Label>Your Rating</Label>
                         <div className="flex gap-2">
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <Button
+                              key={rating}
+                              variant="outline"
+                              size="sm"
+                              className={watchlistData?.watchlistItem?.rating === rating ? "bg-primary text-primary-foreground" : ""}
+                              onClick={() => rateMutation.mutate(rating)}
+                            >
+                              <Star className={`h-4 w-4 ${watchlistData?.watchlistItem?.rating === rating ? "fill-primary-foreground" : "fill-none"}`} />
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Progress Tracking Section */}
+                      {details.Type === "series" ? (
+                        <div className="space-y-4">
+                          <div className="flex gap-4">
+                            <div className="flex-1 space-y-2">
+                              <Label>Season</Label>
+                              <Select
+                                value={currentSeason}
+                                onValueChange={(value) => {
+                                  setCurrentSeason(value);
+                                  setSelectedEpisode("1");
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue>Season {currentSeason}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from(
+                                    { length: parseInt(details.totalSeasons) },
+                                    (_, i) => (
+                                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                        Season {i + 1}
+                                      </SelectItem>
+                                    )
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <Label>Episode</Label>
+                              <Select
+                                value={selectedEpisode}
+                                onValueChange={setSelectedEpisode}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue>Episode {selectedEpisode}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {details.Episodes?.map((episode: any) => (
+                                    <SelectItem
+                                      key={episode.Episode}
+                                      value={episode.Episode.toString()}
+                                    >
+                                      Episode {episode.Episode}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => updateProgressMutation.mutate({
+                              progress: (parseInt(selectedEpisode) / (details.Episodes?.length || 1)) * 100,
+                              completed: parseInt(selectedEpisode) === details.Episodes?.length
+                            })}
+                            className="w-full"
+                          >
+                            Update Progress
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={isCompleted}
+                            onCheckedChange={(checked) =>
+                              updateProgressMutation.mutate({ completed: checked, progress: checked ? 100 : 0 })
+                            }
+                          />
+                          <Label>Mark as Completed</Label>
+                        </div>
+                      )}
                           {[1, 2, 3, 4, 5].map((rating) => (
                             <Button
                               key={rating}
