@@ -175,6 +175,7 @@ export default function MediaDetails({
                                 onValueChange={(value) => {
                                   setCurrentSeason(value);
                                   setSelectedEpisode("1");
+                                  queryClient.invalidateQueries(["/api/media", mediaId, value]);
                                 }}
                               >
                                 <SelectTrigger>
