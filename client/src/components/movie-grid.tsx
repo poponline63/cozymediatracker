@@ -1,4 +1,4 @@
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, Clock } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -59,6 +59,33 @@ export default function MovieGrid({
     },
   });
 
+  const moveToWatchlistMutation = useMutation({
+    mutationFn: async (currentlyWatchingId: number) => {
+      const res = await apiRequest("PATCH", `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`, {});
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message);
+      }
+      return res.json();
+    },
+    onSuccess: (data, currentlyWatchingId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      const item = items.find(item => item.id === currentlyWatchingId);
+      toast({
+        title: "Moved to watchlist",
+        description: `${item?.title} has been moved to your watchlist`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -107,6 +134,7 @@ export default function MovieGrid({
                 status={watchlistItem?.status}
               />
             </div>
+            {/* Button for items in watchlist */}
             {item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
@@ -116,6 +144,19 @@ export default function MovieGrid({
               >
                 <Play className="w-4 h-4 mr-2" />
                 Start Watching
+              </Button>
+            )}
+            {/* Button for items in currently watching */}
+            {item.status === "watching" && (
+              <Button
+                className="w-full"
+                size="sm"
+                variant="secondary"
+                onClick={() => moveToWatchlistMutation.mutate(item.id)}
+                disabled={moveToWatchlistMutation.isPending}
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Move to Watchlist
               </Button>
             )}
           </div>

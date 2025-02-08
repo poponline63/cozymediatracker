@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertWatchlistSchema, insertCurrentlyWatchingSchema, insertCustomListSchema } from "@shared/schema";
+import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
   // Currently Watching routes
@@ -233,65 +233,33 @@ export function registerRoutes(app: Express): Server {
     res.status(201).json(session);
   });
 
-  // Custom Lists routes
-  app.get("/api/custom-lists", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const lists = await storage.getCustomLists(req.user!.id);
-    res.json(lists);
-  });
-
-  app.post("/api/custom-lists", async (req, res) => {
+  app.patch("/api/currently-watching/:id/move-to-watchlist", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const parsed = insertCustomListSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json(parsed.error);
+    try {
+      const currentlyWatching = await storage.getCurrentlyWatchingItem(parseInt(req.params.id));
+      if (!currentlyWatching) {
+        return res.status(404).json({ message: "Currently watching item not found" });
+      }
+
+      // Add to watchlist
+      const watchlist = await storage.addToWatchlist(req.user!.id, {
+        mediaId: currentlyWatching.mediaId,
+        title: currentlyWatching.title,
+        type: currentlyWatching.type,
+        posterUrl: currentlyWatching.posterUrl,
+        status: "plan_to_watch",
+      });
+
+      // Remove from currently watching
+      await storage.stopWatching(parseInt(req.params.id));
+
+      res.json({ status: "moved_to_watchlist", watchlist });
+    } catch (error) {
+      console.error("Error moving to watchlist:", error);
+      res.status(500).json({ message: "Failed to move to watchlist" });
     }
-
-    const list = await storage.createCustomList(req.user!.id, parsed.data);
-    res.status(201).json(list);
   });
-
-  app.get("/api/custom-lists/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const list = await storage.getCustomList(parseInt(req.params.id));
-    if (!list) return res.sendStatus(404);
-    if (list.userId !== req.user!.id && !list.isPublic) {
-      return res.sendStatus(403);
-    }
-    res.json(list);
-  });
-
-  app.post("/api/custom-lists/:id/items", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const listId = parseInt(req.params.id);
-    const { mediaId, title, posterUrl } = req.body;
-
-    const list = await storage.getCustomList(listId);
-    if (!list) return res.sendStatus(404);
-    if (list.userId !== req.user!.id) return res.sendStatus(403);
-
-    const item = await storage.addToCustomList(listId, {
-      mediaId,
-      title,
-      posterUrl,
-    });
-    res.status(201).json(item);
-  });
-
-  app.delete("/api/custom-lists/:listId/items/:itemId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const listId = parseInt(req.params.listId);
-    const itemId = parseInt(req.params.itemId);
-
-    const list = await storage.getCustomList(listId);
-    if (!list) return res.sendStatus(404);
-    if (list.userId !== req.user!.id) return res.sendStatus(403);
-
-    await storage.removeFromCustomList(itemId);
-    res.sendStatus(204);
-  });
-
 
   const httpServer = createServer(app);
   return httpServer;

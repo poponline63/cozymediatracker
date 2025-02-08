@@ -34,6 +34,7 @@ export interface IStorage {
   updateProgress(id: number, progress: number, seasonEpisodeInfo?: { currentSeason?: number, currentEpisode?: number }): Promise<CurrentlyWatching>;
   markAsCompleted(id: number): Promise<CurrentlyWatching>;
   stopWatching(id: number): Promise<void>;
+  getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>; // Added method
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -146,6 +147,15 @@ export class DatabaseStorage implements IStorage {
   async stopWatching(id: number): Promise<void> {
     await db.delete(currentlyWatching).where(eq(currentlyWatching.id, id));
   }
+
+  async getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined> { // Added method implementation
+    const [item] = await db
+      .select()
+      .from(currentlyWatching)
+      .where(eq(currentlyWatching.id, id));
+    return item;
+  }
+
 
   // Watchlist operations
   async getWatchlist(userId: number): Promise<Watchlist[]> {

@@ -39,7 +39,7 @@ export default function ProfilePage() {
 
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
 
-  // Ensure we're explicitly setting the status when filtering
+  // Ensure we're explicitly setting the status when filtering and always returning an array
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
     ...item,
     status: "plan_to_watch" // Explicitly set status
@@ -62,6 +62,9 @@ export default function ProfilePage() {
     { name: "Not Started", value: notStartedItems, color: "#6b7280" },
   ].filter(item => item.value > 0);
 
+  // Ensure currentlyWatching is always an array
+  const currentlyWatchingArray = currentlyWatching || [];
+
   return (
     <Layout>
       <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
@@ -75,7 +78,7 @@ export default function ProfilePage() {
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
             <div className="flex w-max space-x-4 p-4">
-              {currentlyWatching?.map((item) => (
+              {currentlyWatchingArray.map((item) => (
                 <div
                   key={item.id}
                   className="w-[150px] cursor-pointer"
@@ -177,7 +180,7 @@ export default function ProfilePage() {
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
               <TabsTrigger value="watching">
-                Currently Watching ({currentlyWatching?.length || 0})
+                Currently Watching ({currentlyWatchingArray.length})
               </TabsTrigger>
               <TabsTrigger value="plan_to_watch">
                 Plan to Watch ({planToWatch.length})
@@ -186,7 +189,7 @@ export default function ProfilePage() {
 
             <TabsContent value="watching" className="space-y-4">
               <MovieGrid
-                items={currentlyWatching}
+                items={currentlyWatchingArray}
                 isLoading={isLoadingCurrentlyWatching}
                 showProgress
                 showRemove
