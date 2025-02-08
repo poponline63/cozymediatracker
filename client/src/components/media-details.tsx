@@ -197,35 +197,36 @@ export default function MediaDetails({
 
                   {/* Action Buttons Section */}
                   <div className="space-y-3">
-                    {!isInWatchlist ? (
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => startWatchingMutation.mutate()}
-                          disabled={startWatchingMutation.isPending}
-                          className="flex-1"
-                          variant="default"
-                        >
-                          <Play className="h-4 w-4 mr-2" />
-                          Start Watching
-                        </Button>
-                        <Button
-                          onClick={() => addToWatchlistMutation.mutate()}
-                          disabled={addToWatchlistMutation.isPending}
-                          className="flex-1"
-                          variant="secondary"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add to Watchlist
-                        </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => startWatchingMutation.mutate()}
+                        disabled={startWatchingMutation.isPending}
+                        className="flex-1"
+                        variant="default"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Start Watching
+                      </Button>
+                      <Button
+                        onClick={() => addToWatchlistMutation.mutate()}
+                        disabled={addToWatchlistMutation.isPending}
+                        className="flex-1"
+                        variant="secondary"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add to Watchlist
+                      </Button>
+                    </div>
+                    {isInWatchlist ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">
+                            {isWatching ? "Currently Watching" : "In Watchlist"}
+                          </span>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">
-                          {isWatching ? "Currently Watching" : "In Watchlist"}
-                        </span>
-                      </div>
-                    )}
+                    ) : null}
 
                     <div className="flex gap-2">
                       <DropdownMenu>
@@ -278,10 +279,10 @@ export default function MediaDetails({
                   {isWatching && watchlistData?.watchlistItem && (
                     <div className="mt-4 p-4 border rounded-lg bg-card">
                       <h3 className="text-sm font-medium mb-4">Watch Timer</h3>
-                      <WatchTimer 
+                      <WatchTimer
                         mediaId={mediaId}
                         watchlistId={watchlistData.watchlistItem.id}
-                        totalDuration={parseInt(details.Runtime)} 
+                        totalDuration={parseInt(details.Runtime)}
                         onProgressUpdate={(progress) => {
                           if (progress > (watchlistData.watchlistItem?.progress ?? 0)) {
                             updateProgressMutation.mutate({
@@ -316,7 +317,7 @@ export default function MediaDetails({
                         <h4 className="font-semibold">Status</h4>
                         <p className="text-muted-foreground">
                           {new Date(details.Year.split("–")[1] || new Date()) >
-                          new Date()
+                            new Date()
                             ? "Currently Airing"
                             : "Ended"}
                         </p>
