@@ -101,20 +101,6 @@ export function registerRoutes(app: Express): Server {
     res.status(201).json(item);
   });
 
-  app.patch("/api/watchlist/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const { status, progress } = req.body;
-    if (!status) return res.status(400).send("Status is required");
-
-    const item = await storage.updateWatchlistStatus(
-      parseInt(req.params.id),
-      status,
-      progress,
-    );
-    res.json(item);
-  });
-
   app.delete("/api/watchlist/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     await storage.removeFromWatchlist(parseInt(req.params.id));
@@ -178,6 +164,57 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Statistics routes
+  app.get("/api/statistics", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const stats = await storage.getUserStatistics(req.user!.id);
+    res.json(stats);
+  });
+
+  app.get("/api/statistics/watch-sessions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const sessions = await storage.getRecentWatchSessions(req.user!.id);
+    res.json(sessions);
+  });
+
+  app.post("/api/watch-sessions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const session = await storage.createWatchSession(req.user!.id, req.body);
+    res.status(201).json(session);
+  });
+
+  app.patch("/api/watchlist/:id/rating", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { rating } = req.body;
+    if (typeof rating !== "number" || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Invalid rating" });
+    }
+
+    const item = await storage.updateWatchlistRating(
+      parseInt(req.params.id),
+      rating
+    );
+    res.json(item);
+  });
+
+  app.patch("/api/watchlist/:id/progress", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { progress } = req.body;
+    if (typeof progress !== "number" || progress < 0 || progress > 100) {
+      return res.status(400).json({ message: "Invalid progress value" });
+    }
+
+    const item = await storage.updateWatchlistProgress(
+      parseInt(req.params.id),
+      progress
+    );
+    res.json(item);
+  });
+
   // Custom Lists routes
   app.get("/api/custom-lists", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -237,59 +274,6 @@ export function registerRoutes(app: Express): Server {
     res.sendStatus(204);
   });
 
-  // Update rating endpoint
-  app.patch("/api/watchlist/:id/rating", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { rating } = req.body;
-    if (typeof rating !== "number" || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Invalid rating" });
-    }
-
-    const item = await storage.updateWatchlistRating(
-      parseInt(req.params.id),
-      rating
-    );
-    res.json(item);
-  });
-
-  // Add statistics routes
-  app.get("/api/statistics", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const stats = await storage.getUserStatistics(req.user!.id);
-    res.json(stats);
-  });
-
-  app.get("/api/statistics/watch-sessions", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const sessions = await storage.getRecentWatchSessions(req.user!.id);
-    res.json(sessions);
-  });
-
-  // Add this to the routes registration
-  app.post("/api/watch-sessions", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const session = await storage.createWatchSession(req.user!.id, req.body);
-    res.status(201).json(session);
-  });
-
-  // Add progress update endpoint
-  app.patch("/api/watchlist/:id/progress", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    const { progress } = req.body;
-    if (typeof progress !== "number" || progress < 0 || progress > 100) {
-      return res.status(400).json({ message: "Invalid progress value" });
-    }
-
-    const item = await storage.updateWatchlistProgress(
-      parseInt(req.params.id),
-      progress
-    );
-    res.json(item);
-  });
 
   const httpServer = createServer(app);
   return httpServer;
