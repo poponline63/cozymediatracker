@@ -25,6 +25,12 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json(parsed.error);
     }
 
+    // Check if media already exists in currently watching
+    const existingCurrentlyWatching = await storage.getCurrentlyWatchingByMediaId(req.user!.id, parsed.data.mediaId);
+    if (existingCurrentlyWatching) {
+      return res.status(400).json({ message: "This media is already in your currently watching list" });
+    }
+
     const item = await storage.startWatching(req.user!.id, parsed.data);
 
     // If the item was in the watchlist, remove it

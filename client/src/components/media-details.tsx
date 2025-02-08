@@ -103,13 +103,25 @@ export default function MediaDetails({
         posterUrl: details?.Poster,
         totalSeasons: details?.totalSeasons,
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message);
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       toast({
         title: "Started watching",
         description: `${details?.Title} has been added to your currently watching list`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
