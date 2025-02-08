@@ -119,6 +119,36 @@ export function registerRoutes(app: Express): Server {
     res.status(201).json(item);
   });
 
+  app.patch("/api/watchlist/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const watchlistItem = await storage.getWatchlistItem(parseInt(req.params.id));
+      if (!watchlistItem) {
+        return res.status(404).json({ message: "Watchlist item not found" });
+      }
+
+      if (req.body.status === "watching") {
+        // Move to currently watching
+        await storage.startWatching(req.user!.id, {
+          mediaId: watchlistItem.mediaId,
+          title: watchlistItem.title,
+          type: watchlistItem.type,
+          posterUrl: watchlistItem.posterUrl,
+        });
+        // Remove from watchlist
+        await storage.removeFromWatchlist(parseInt(req.params.id));
+        res.json({ status: "moved_to_watching" });
+      } else {
+        // Regular status update
+        const item = await storage.updateWatchlistItem(parseInt(req.params.id), req.body);
+        res.json(item);
+      }
+    } catch (error) {
+      res.status(404).json({ message: "Failed to update status" });
+    }
+  });
+
   app.delete("/api/watchlist/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     await storage.removeFromWatchlist(parseInt(req.params.id));
