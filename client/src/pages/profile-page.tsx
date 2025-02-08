@@ -16,6 +16,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+interface Statistics {
+  totalWatchtime: number;
+  totalItems: number;
+  averageRating: number;
+  ratedItems: number;
+  averageDailyWatchtime: number;
+  watchTimeByDay: Array<{
+    day: string;
+    hours: number;
+  }>;
+}
+
 export default function ProfilePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
@@ -26,7 +38,7 @@ export default function ProfilePage() {
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
 
   // Statistics queries
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<Statistics>({
     queryKey: ["/api/statistics"],
   });
 
@@ -69,7 +81,7 @@ export default function ProfilePage() {
                       onClick={() => setSelectedMediaId(item.mediaId)}
                     >
                       <img
-                        src={item.posterUrl}
+                        src={item.posterUrl || ""}
                         alt={item.title}
                         className="w-full aspect-[2/3] rounded-lg object-cover"
                       />
@@ -106,7 +118,7 @@ export default function ProfilePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {Math.floor(stats?.totalWatchtime / 60)}h {stats?.totalWatchtime % 60}m
+                      {Math.floor((stats?.totalWatchtime || 0) / 60)}h {(stats?.totalWatchtime || 0) % 60}m
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Across {stats?.totalItems || 0} items
