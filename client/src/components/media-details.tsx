@@ -132,7 +132,7 @@ export default function MediaDetails({
 
   const updateProgressMutation = useMutation({
     mutationFn: async ({ progress, completed }: { progress?: number; completed?: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${mediaId}`, {
+      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistData?.watchlistItem?.id}`, {
         progress,
         completed,
         currentSeason: parseInt(currentSeason),
