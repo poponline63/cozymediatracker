@@ -56,48 +56,45 @@ export default function ProfilePage() {
 
   return (
     <Layout>
-      <div className="max-w-screen-2xl mx-auto px-4">
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <User className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-semibold">My Profile</h1>
-          </div>
-          <p className="text-muted-foreground mt-2">
-            {watchlist?.length || 0} items in watchlist
-          </p>
+      <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
+        <div className="flex items-center gap-3">
+          <User className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-semibold">My Profile</h1>
+        </div>
+
+        {/* Currently Watching Section */}
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
+          <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
+            <div className="flex w-max space-x-4 p-4">
+              {watching.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="w-[150px] cursor-pointer"
+                  onClick={() => setSelectedMediaId(item.mediaId)}
+                >
+                  <img
+                    src={item.posterUrl || ""}
+                    alt={item.title}
+                    className="w-full aspect-[2/3] rounded-lg object-cover"
+                  />
+                  <p className="mt-2 text-sm font-medium truncate">{item.title}</p>
+                </div>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left side: Selected media or watchlist */}
           <div className="space-y-6">
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
-              <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
-                <div className="flex w-max space-x-4 p-4">
-                  {watching.map((item) => (
-                    <div 
-                      key={item.id} 
-                      className="w-[150px] cursor-pointer"
-                      onClick={() => setSelectedMediaId(item.mediaId)}
-                    >
-                      <img
-                        src={item.posterUrl || ""}
-                        alt={item.title}
-                        className="w-full aspect-[2/3] rounded-lg object-cover"
-                      />
-                      <p className="mt-2 text-sm font-medium truncate">{item.title}</p>
-                    </div>
-                  ))}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-
             {selectedMediaId && (
               <MediaDetails
                 mediaId={selectedMediaId}
                 isOpen={!!selectedMediaId}
                 onClose={() => setSelectedMediaId(null)}
+                isProfileView
               />
             )}
           </div>
@@ -167,7 +164,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="mt-8">
+        {/* Watchlist Tabs Section */}
+        <div>
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
               <TabsTrigger value="watching">
