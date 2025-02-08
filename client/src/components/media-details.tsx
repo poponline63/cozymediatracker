@@ -210,7 +210,7 @@ export default function MediaDetails({
                           ) : (
                             <>
                               <Play className="h-4 w-4 mr-2" />
-                              Start Watching
+                              Currently Watching
                             </>
                           )}
                         </Button>
@@ -373,7 +373,7 @@ export default function MediaDetails({
                         <h4 className="font-semibold">Status</h4>
                         <p className="text-muted-foreground">
                           {new Date(details.Year.split("–")[1] || new Date()) >
-                          new Date()
+                            new Date()
                             ? "Currently Airing"
                             : "Ended"}
                         </p>
