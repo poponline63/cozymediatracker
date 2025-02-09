@@ -260,8 +260,51 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/watch-sessions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const session = await storage.createWatchSession(req.user!.id, req.body);
-    res.status(201).json(session);
+    try {
+      const { mediaId, watchlistId, startTime, endTime, duration } = req.body;
+
+      // Validate required fields
+      if (!mediaId || !startTime || !endTime) {
+        return res.status(400).json({
+          message: "Missing required fields: mediaId, startTime, and endTime are required"
+        });
+      }
+
+      // Ensure valid date objects
+      const parsedStartTime = new Date(startTime);
+      const parsedEndTime = new Date(endTime);
+
+      if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+        return res.status(400).json({
+          message: "Invalid date format for startTime or endTime"
+        });
+      }
+
+      // Calculate duration if not provided
+      const calculatedDuration = duration ||
+        Math.floor((parsedEndTime.getTime() - parsedStartTime.getTime()) / 1000);
+
+      // Create the watch session
+      const session = await storage.createWatchSession(req.user!.id, {
+        mediaId,
+        watchlistId,
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
+        duration: calculatedDuration
+      });
+
+      console.log('Watch session created:', {
+        userId: req.user!.id,
+        mediaId,
+        watchlistId,
+        duration: session.duration,
+      });
+
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error creating watch session:", error);
+      res.status(500).json({ message: "Failed to create watch session" });
+    }
   });
 
   app.patch("/api/currently-watching/:id/move-to-watchlist", async (req, res) => {

@@ -26,30 +26,60 @@ export default function WatchTimer({
 
   const saveSessionMutation = useMutation({
     mutationFn: async () => {
-      if (!startTime) return;
-      
+      if (!startTime) {
+        throw new Error("No start time recorded");
+      }
+
       const endTime = new Date();
+      const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000); // Duration in seconds
+
+      console.log('Saving watch session:', {
+        mediaId,
+        watchlistId,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        duration
+      });
+
       const response = await apiRequest("POST", "/api/watch-sessions", {
         mediaId,
         watchlistId,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
+        duration
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save watch session");
+      }
+
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all relevant queries to update UI
       queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/statistics/watch-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+
       toast({
         title: "Watch session saved",
-        description: "Your progress has been updated",
+        description: `Successfully logged ${formatTime(elapsedTime)} of watch time`,
+      });
+    },
+    onError: (error: Error) => {
+      console.error('Watch session save error:', error);
+      toast({
+        title: "Error saving session",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isRunning) {
       interval = setInterval(() => {
         setElapsedTime(prev => prev + 1);
@@ -75,7 +105,7 @@ export default function WatchTimer({
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const remainingSeconds = seconds % 60;
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes
       .toString()
       .padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -95,8 +125,19 @@ export default function WatchTimer({
   const handleStop = async () => {
     setIsRunning(false);
     if (elapsedTime > 0) {
-      await saveSessionMutation.mutateAsync();
+      try {
+        await saveSessionMutation.mutateAsync();
+        // Reset timer after successful save
+        setElapsedTime(0);
+        setStartTime(null);
+      } catch (error) {
+        console.error('Failed to save watch session:', error);
+      }
     }
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
     setElapsedTime(0);
     setStartTime(null);
   };
@@ -106,7 +147,7 @@ export default function WatchTimer({
       <div className="text-3xl font-mono text-center">
         {formatTime(elapsedTime)}
       </div>
-      
+
       <div className="flex justify-center gap-2">
         {!isRunning ? (
           <Button
@@ -114,6 +155,7 @@ export default function WatchTimer({
             variant="outline"
             onClick={handleStart}
             className="h-8 w-8"
+            title="Start"
           >
             <Play className="h-4 w-4" />
           </Button>
@@ -123,21 +165,45 @@ export default function WatchTimer({
             variant="outline"
             onClick={handlePause}
             className="h-8 w-8"
+            title="Pause"
           >
             <Pause className="h-4 w-4" />
           </Button>
         )}
-        
+
         <Button
           size="icon"
           variant="outline"
           onClick={handleStop}
           className="h-8 w-8"
+          title="Stop and Save"
           disabled={elapsedTime === 0}
         >
           <Square className="h-4 w-4" />
         </Button>
+
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={handleReset}
+          className="h-8 w-8"
+          title="Reset"
+          disabled={elapsedTime === 0}
+        >
+          <Save className="h-4 w-4" />
+        </Button>
       </div>
+
+      {saveSessionMutation.isPending && (
+        <p className="text-sm text-muted-foreground text-center">
+          Saving watch session...
+        </p>
+      )}
+      {saveSessionMutation.isError && (
+        <p className="text-sm text-destructive text-center">
+          Failed to save watch session
+        </p>
+      )}
     </div>
   );
 }

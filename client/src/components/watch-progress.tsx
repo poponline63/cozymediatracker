@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Check } from "lucide-react";
+import WatchTimer from "./watch-timer";
 import {
   Select,
   SelectContent,
@@ -32,7 +33,7 @@ export default function WatchProgress({
   const [currentEpisode, setCurrentEpisode] = useState("1");
   const { toast } = useToast();
 
-  // Fetch media details to get total seasons/episodes
+  // Fetch media details to get total seasons/episodes and duration
   const { data: details } = useQuery({
     queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
@@ -41,7 +42,7 @@ export default function WatchProgress({
       return res.json();
     },
     enabled: type === "series",
-    gcTime: 0, // Replace cacheTime with gcTime in v5
+    gcTime: 0,
     staleTime: 0
   });
 
@@ -98,6 +99,14 @@ export default function WatchProgress({
     }
   }, [currentEpisode, details?.Episodes, type]);
 
+  // Extract runtime from details
+  const runtime = details?.Runtime?.split(' ')?.[0] || null;
+  const totalDuration = runtime ? parseInt(runtime) : undefined;
+
+  const handleProgressUpdate = (newProgress: number) => {
+    setProgress(newProgress);
+  };
+
   if (type === "series") {
     return (
       <div className="space-y-2 mt-2">
@@ -131,6 +140,12 @@ export default function WatchProgress({
           </Select>
         </div>
         <Progress value={progress} className="h-2" />
+        <WatchTimer
+          mediaId={mediaId}
+          watchlistId={watchlistId}
+          totalDuration={totalDuration}
+          onProgressUpdate={handleProgressUpdate}
+        />
       </div>
     );
   }
@@ -158,6 +173,12 @@ export default function WatchProgress({
         </Button>
       </div>
       <Progress value={progress} className="h-2" />
+      <WatchTimer
+        mediaId={mediaId}
+        watchlistId={watchlistId}
+        totalDuration={totalDuration}
+        onProgressUpdate={handleProgressUpdate}
+      />
     </div>
   );
 }

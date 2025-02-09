@@ -3,8 +3,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist, CurrentlyWatching, User } from "@shared/schema";
-import { BarChart3, UserIcon, Clock, Settings2 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { BarChart3, UserIcon, Clock, Settings2, CheckCircle2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import MediaDetails from "@/components/media-details";
@@ -134,6 +134,76 @@ export default function ProfilePage() {
           </Dialog>
         </div>
 
+        {/* Statistics Cards Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Watch Time</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {Math.floor((stats?.totalWatchtime || 0) / 60)}h {(stats?.totalWatchtime || 0) % 60}m
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Across {stats?.totalItems || 0} items
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {Math.floor((stats?.averageDailyWatchtime || 0) / 60)}h {Math.round((stats?.averageDailyWatchtime || 0) % 60)}m
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Based on last 7 days
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {Math.round((completedItems / (totalItems || 1)) * 100)}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {completedItems} of {totalItems} completed
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Weekly Watch Time Chart */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Weekly Watch Time</CardTitle>
+            <CardDescription>Your watching activity over the past week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.watchTimeByDay || []}>
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value: number) => `${Math.floor(value)}h ${Math.round((value % 1) * 60)}m`}
+                  />
+                  <Bar dataKey="hours" fill="var(--primary)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Currently Watching Section */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
@@ -180,21 +250,6 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-1 gap-8">
               <div className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total Watch Time</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {Math.floor((stats?.totalWatchtime || 0) / 60)}h {(stats?.totalWatchtime || 0) % 60}m
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Across {stats?.totalItems || 0} items
-                    </p>
-                  </CardContent>
-                </Card>
-
                 <div className="grid grid-cols-2 gap-4">
                   {chartData.map(({ name, value, color }) => (
                     <div key={name} className="space-y-1">
@@ -209,28 +264,28 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={2}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value} items`} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={2}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `${value} items`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>

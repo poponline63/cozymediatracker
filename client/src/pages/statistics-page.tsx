@@ -23,12 +23,31 @@ import {
 
 const COLORS = ["#22c55e", "#3b82f6", "#ec4899", "#f59e0b", "#6366f1"];
 
+// Assuming type definitions for Statistics and WatchSession exist elsewhere
+// in the project.  These would need to be defined or imported.
+interface Statistics {
+  totalWatchtime?: number;
+  totalItems?: number;
+  averageDailyWatchtime?: number;
+  averageRating?: number;
+  ratedItems?: number;
+  watchTimeByDay?: { day: string; hours: number }[];
+}
+
+interface WatchSession {
+  id: string;
+  title: string;
+  duration: number;
+  startTime: string;
+}
+
+
 export default function StatisticsPage() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<Statistics>({
     queryKey: ["/api/statistics"],
   });
 
-  const { data: watchSessions } = useQuery({
+  const { data: watchSessions } = useQuery<WatchSession[]>({
     queryKey: ["/api/statistics/watch-sessions"],
   });
 
@@ -39,6 +58,14 @@ export default function StatisticsPage() {
       </Layout>
     );
   }
+
+  const totalWatchtime = stats?.totalWatchtime || 0;
+  const totalItems = stats?.totalItems || 0;
+  const averageDailyWatchtime = Math.round(stats?.averageDailyWatchtime || 0);
+  const averageRating = stats?.averageRating || 0; //Added for better error handling
+  const ratedItems = stats?.ratedItems || 0; //Added for better error handling
+  const watchTimeByDay = stats?.watchTimeByDay || [];
+
 
   return (
     <Layout>
@@ -57,10 +84,10 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {Math.floor(stats?.totalWatchtime / 60)}h {stats?.totalWatchtime % 60}m
+                {Math.floor(totalWatchtime / 60)}h {totalWatchtime % 60}m
               </div>
               <p className="text-xs text-muted-foreground">
-                Across {stats?.totalItems || 0} items
+                Across {totalItems} items
               </p>
             </CardContent>
           </Card>
@@ -71,7 +98,7 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats?.averageDailyWatchtime}m
+                {averageDailyWatchtime}m
               </div>
               <p className="text-xs text-muted-foreground">
                 Last 7 days
@@ -85,10 +112,10 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats?.averageRating?.toFixed(1)} / 5.0
+                {averageRating.toFixed(1)} / 5.0
               </div>
               <p className="text-xs text-muted-foreground">
-                From {stats?.ratedItems || 0} ratings
+                From {ratedItems} ratings
               </p>
             </CardContent>
           </Card>
@@ -103,7 +130,7 @@ export default function StatisticsPage() {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.watchTimeByDay || []}>
+                <BarChart data={watchTimeByDay}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" />
                   <YAxis />
