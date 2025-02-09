@@ -18,9 +18,21 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 const updateProfileSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  avatarUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  username: z
+    .string()
+    .min(3, "Username must be at least 3 characters")
+    .max(20, "Username must be less than 20 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  avatarUrl: z
+    .string()
+    .url("Must be a valid URL")
+    .optional()
+    .or(z.literal("")),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .optional()
+    .or(z.literal("")),
 });
 
 type UpdateProfileValues = z.infer<typeof updateProfileSchema>;
@@ -53,7 +65,8 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
       };
       const res = await apiRequest("PATCH", "/api/user", cleanedData);
       if (!res.ok) {
-        throw new Error("Failed to update profile");
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update profile");
       }
       return res.json();
     },
@@ -64,11 +77,12 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
         description: "Your profile has been updated successfully.",
       });
       onSuccess?.();
+      form.reset(form.getValues()); // Reset form state but keep values
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive",
       });
     },
@@ -90,6 +104,9 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
               <FormControl>
                 <Input {...field} />
               </FormControl>
+              <FormDescription>
+                This is your public display name. Only letters, numbers, and underscores allowed.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -105,7 +122,7 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
                 <Input {...field} placeholder="https://example.com/avatar.png" />
               </FormControl>
               <FormDescription>
-                Enter a URL for your profile picture
+                Enter a URL for your profile picture (leave empty to remove)
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -119,7 +136,11 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
             <FormItem>
               <FormLabel>New Password (Optional)</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input 
+                  type="password" 
+                  {...field} 
+                  autoComplete="new-password"
+                />
               </FormControl>
               <FormDescription>
                 Leave blank to keep current password
@@ -129,7 +150,11 @@ export function UpdateProfileForm({ defaultValues, onSuccess }: UpdateProfileFor
           )}
         />
 
-        <Button type="submit" disabled={updateProfileMutation.isPending}>
+        <Button 
+          type="submit" 
+          disabled={updateProfileMutation.isPending || !form.formState.isDirty}
+          className="w-full"
+        >
           {updateProfileMutation.isPending && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}

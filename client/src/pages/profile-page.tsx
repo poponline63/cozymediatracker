@@ -64,6 +64,8 @@ export default function ProfilePage() {
   // Statistics queries
   const { data: stats } = useQuery<Statistics>({
     queryKey: ["/api/statistics"],
+    // Add staleTime to prevent unnecessary refetches
+    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
   });
 
   // Calculate completion statistics

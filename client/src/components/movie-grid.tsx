@@ -1,11 +1,11 @@
-import { Loader2, Play, Clock } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Play, Clock } from "lucide-react";
+import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 
 interface MovieGridProps {
   items: (Watchlist | CurrentlyWatching)[];
@@ -64,7 +64,7 @@ export default function MovieGrid({
       const res = await apiRequest("PATCH", `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`, {});
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message);
+        throw new Error(error.message || "Failed to move item to watchlist");
       }
       return res.json();
     },
@@ -112,7 +112,7 @@ export default function MovieGrid({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map((item) => {
         const watchlistItem = watchlist?.find(
-          (w) => w.mediaId === (item.mediaId)
+          (w) => w.mediaId === item.mediaId
         );
 
         return (
@@ -124,17 +124,18 @@ export default function MovieGrid({
               <MediaCard
                 id={item.mediaId}
                 title={item.title}
-                posterUrl={item.posterUrl}
+                posterUrl={item.posterUrl || undefined}
                 type={item.type}
                 showAddToList={!watchlistItem && showAddToList}
                 showProgress={showProgress}
                 showRemove={showRemove}
-                progress={'progress' in item ? item.progress : undefined}
+                progress={'progress' in item ? (item.progress || undefined) : undefined}
                 watchlistId={watchlistItem?.id}
                 status={'status' in item ? item.status : undefined}
               />
             </div>
-            {/* Button for items in watchlist */}
+
+            {/* Button for items in plan to watch */}
             {'status' in item && item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
@@ -146,6 +147,7 @@ export default function MovieGrid({
                 Start Watching
               </Button>
             )}
+
             {/* Button for items in currently watching */}
             {'status' in item && item.status === "watching" && (
               <Button

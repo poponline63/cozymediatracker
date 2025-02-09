@@ -41,8 +41,8 @@ export default function WatchProgress({
       return res.json();
     },
     enabled: type === "series",
-    staleTime: 0,
-    cacheTime: 0
+    gcTime: 0, // Replace cacheTime with gcTime in v5
+    staleTime: 0
   });
 
   const updateMutation = useMutation({

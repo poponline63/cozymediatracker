@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Eye, Clock } from "lucide-react";
+import { Plus, X, Eye, Clock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertWatchlist } from "@shared/schema";
 import WatchProgress from "./watch-progress";
@@ -37,6 +37,10 @@ export default function MediaCard({
   const addMutation = useMutation({
     mutationFn: async (data: InsertWatchlist) => {
       const res = await apiRequest("POST", "/api/watchlist", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to add to watchlist");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -46,11 +50,22 @@ export default function MediaCard({
         description: `${title} has been added to your watchlist`,
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const removeMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/watchlist/${id}`);
+      const res = await apiRequest("DELETE", `/api/watchlist/${id}`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to remove from watchlist");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
@@ -59,18 +74,37 @@ export default function MediaCard({
         description: `${title} has been removed from your watchlist`,
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await apiRequest("PATCH", `/api/watchlist/${id}`, { status });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update status");
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Status updated",
         description: `${title} has been moved to ${status === "watching" ? "Currently Watching" : "Plan to Watch"}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -102,18 +136,23 @@ export default function MediaCard({
                 variant="secondary"
                 size="sm"
                 className="w-full"
-                onClick={() =>
+                onClick={(e) => {
+                  e.stopPropagation();
                   addMutation.mutate({
                     mediaId: id,
                     title,
                     type,
                     posterUrl,
                     status: "plan_to_watch",
-                  })
-                }
+                  });
+                }}
                 disabled={addMutation.isPending || watchlistId !== undefined}
               >
-                <Plus className="h-4 w-4 mr-1" />
+                {addMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
                 {watchlistId ? 'In Watchlist' : 'Add to Watchlist'}
               </Button>
               <Button
@@ -132,7 +171,11 @@ export default function MediaCard({
                 }}
                 disabled={addMutation.isPending || watchlistId !== undefined}
               >
-                <Eye className="h-4 w-4 mr-1" />
+                {addMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4 mr-2" />
+                )}
                 Currently Watching
               </Button>
             </div>
@@ -143,22 +186,25 @@ export default function MediaCard({
               variant="secondary"
               size="sm"
               className="w-full mt-2"
-              onClick={() =>
+              onClick={(e) => {
+                e.stopPropagation();
                 updateStatusMutation.mutate({
                   id: watchlistId,
                   status: status === "watching" ? "plan_to_watch" : "watching",
-                })
-              }
+                });
+              }}
               disabled={updateStatusMutation.isPending}
             >
-              {status === "watching" ? (
+              {updateStatusMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : status === "watching" ? (
                 <>
-                  <Clock className="h-4 w-4 mr-1" />
+                  <Clock className="h-4 w-4 mr-2" />
                   Move to Plan to Watch
                 </>
               ) : (
                 <>
-                  <Eye className="h-4 w-4 mr-1" />
+                  <Eye className="h-4 w-4 mr-2" />
                   Move to Watching
                 </>
               )}
@@ -171,10 +217,17 @@ export default function MediaCard({
             variant="destructive"
             size="icon"
             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => removeMutation.mutate(watchlistId)}
+            onClick={(e) => {
+              e.stopPropagation();
+              removeMutation.mutate(watchlistId);
+            }}
             disabled={removeMutation.isPending}
           >
-            <X className="h-4 w-4" />
+            {removeMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
+            )}
           </Button>
         )}
       </CardContent>
