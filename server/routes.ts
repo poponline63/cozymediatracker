@@ -313,6 +313,59 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Rating routes
+  app.post("/api/ratings", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { mediaId, rating } = req.body;
+      if (typeof rating !== "number" || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+
+      const ratingItem = await storage.upsertRating(req.user!.id, mediaId, rating);
+      res.json(ratingItem);
+    } catch (error) {
+      console.error("Error rating media:", error);
+      res.status(500).json({ message: "Failed to rate media" });
+    }
+  });
+
+  app.post("/api/ratings/batch", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { mediaIds } = req.body;
+      if (!Array.isArray(mediaIds)) {
+        return res.status(400).json({ message: "mediaIds must be an array" });
+      }
+
+      const ratings = await storage.getRatingsByMediaIds(req.user!.id, mediaIds);
+      // Convert array to object with mediaId as key
+      const ratingsMap = ratings.reduce((acc, rating) => {
+        acc[rating.mediaId] = rating.rating;
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json(ratingsMap);
+    } catch (error) {
+      console.error("Error fetching ratings:", error);
+      res.status(500).json({ message: "Failed to fetch ratings" });
+    }
+  });
+
+  app.delete("/api/ratings/:mediaId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      await storage.deleteRating(req.user!.id, req.params.mediaId);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting rating:", error);
+      res.status(500).json({ message: "Failed to delete rating" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -72,6 +72,16 @@ export const watchSessions = pgTable("watch_sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Ratings table for user media ratings
+export const ratings = pgTable("ratings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  mediaId: text("media_id").notNull(),
+  rating: integer("rating").notNull(), // 1-5 stars
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Schema definitions
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -102,6 +112,13 @@ export const insertWatchSessionSchema = createInsertSchema(watchSessions).omit({
   createdAt: true,
 });
 
+export const insertRatingSchema = createInsertSchema(ratings).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -111,3 +128,5 @@ export type Watchlist = typeof watchlist.$inferSelect;
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
 export type WatchSession = typeof watchSessions.$inferSelect;
 export type InsertWatchSession = z.infer<typeof insertWatchSessionSchema>;
+export type Rating = typeof ratings.$inferSelect;
+export type InsertRating = z.infer<typeof insertRatingSchema>;

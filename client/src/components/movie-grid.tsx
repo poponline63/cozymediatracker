@@ -3,12 +3,23 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Play, Clock } from "lucide-react";
-import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface MovieGridItem {
+  id: string;
+  mediaId: string;
+  title: string;
+  type: string;
+  posterUrl?: string;
+  progress?: number;
+  status?: string;
+  rating?: number;
+  watchlistId?: number;
+}
+
 interface MovieGridProps {
-  items: (Watchlist | CurrentlyWatching)[];
+  items: MovieGridItem[];
   isLoading: boolean;
   showAddToList?: boolean;
   showProgress?: boolean;
@@ -26,7 +37,7 @@ export default function MovieGrid({
 }: MovieGridProps) {
   const { toast } = useToast();
 
-  const { data: watchlist } = useQuery<Watchlist[]>({
+  const { data: watchlist } = useQuery({
     queryKey: ["/api/watchlist"],
   });
 
@@ -124,23 +135,24 @@ export default function MovieGrid({
               <MediaCard
                 id={item.mediaId}
                 title={item.title}
-                posterUrl={item.posterUrl || undefined}
+                posterUrl={item.posterUrl}
                 type={item.type}
                 showAddToList={!watchlistItem && showAddToList}
                 showProgress={showProgress}
                 showRemove={showRemove}
-                progress={'progress' in item ? (item.progress || undefined) : undefined}
+                progress={item.progress}
                 watchlistId={watchlistItem?.id}
-                status={'status' in item ? item.status : undefined}
+                status={item.status}
+                rating={item.rating}
               />
             </div>
 
             {/* Button for items in plan to watch */}
-            {'status' in item && item.status === "plan_to_watch" && (
+            {item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
                 size="sm"
-                onClick={() => startWatchingMutation.mutate(item.id)}
+                onClick={() => startWatchingMutation.mutate(Number(item.id))}
                 disabled={startWatchingMutation.isPending}
               >
                 <Play className="w-4 h-4 mr-2" />
@@ -149,12 +161,12 @@ export default function MovieGrid({
             )}
 
             {/* Button for items in currently watching */}
-            {'status' in item && item.status === "watching" && (
+            {item.status === "watching" && (
               <Button
                 className="w-full"
                 size="sm"
                 variant="secondary"
-                onClick={() => moveToWatchlistMutation.mutate(item.id)}
+                onClick={() => moveToWatchlistMutation.mutate(Number(item.id))}
                 disabled={moveToWatchlistMutation.isPending}
               >
                 <Clock className="w-4 h-4 mr-2" />

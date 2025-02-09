@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Eye, Clock, Loader2 } from "lucide-react";
+import { Plus, X, Eye, Clock, Star, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertWatchlist } from "@shared/schema";
 import WatchProgress from "./watch-progress";
@@ -18,6 +18,7 @@ interface MediaCardProps {
   progress?: number;
   watchlistId?: number;
   status?: string;
+  rating?: number;
 }
 
 export default function MediaCard({
@@ -31,6 +32,7 @@ export default function MediaCard({
   progress,
   watchlistId,
   status,
+  rating,
 }: MediaCardProps) {
   const { toast } = useToast();
 
@@ -83,21 +85,20 @@ export default function MediaCard({
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${id}`, { status });
+  const rateMutation = useMutation({
+    mutationFn: async ({ mediaId, rating }: { mediaId: string; rating: number }) => {
+      const res = await apiRequest("POST", "/api/ratings", { mediaId, rating });
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || "Failed to update status");
+        throw new Error(error.message || "Failed to rate media");
       }
       return res.json();
     },
-    onSuccess: (_, { status }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ratings"] });
       toast({
-        title: "Status updated",
-        description: `${title} has been moved to ${status === "watching" ? "Currently Watching" : "Plan to Watch"}`,
+        title: "Rating updated",
+        description: `You've rated ${title} ${rating} stars`,
       });
     },
     onError: (error: Error) => {
@@ -129,6 +130,29 @@ export default function MediaCard({
               type={type}
             />
           )}
+
+          {/* Rating Stars */}
+          <div className="flex items-center gap-1 mt-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Button
+                key={star}
+                variant="ghost"
+                size="sm"
+                className="p-0 h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  rateMutation.mutate({ mediaId: id, rating: star });
+                }}
+                disabled={rateMutation.isPending}
+              >
+                <Star
+                  className={`h-4 w-4 ${
+                    (rating || 0) >= star ? "fill-primary text-primary" : "text-muted-foreground"
+                  }`}
+                />
+              </Button>
+            ))}
+          </div>
 
           {showAddToList && (
             <div className="space-y-2 mt-2">
@@ -179,36 +203,6 @@ export default function MediaCard({
                 Currently Watching
               </Button>
             </div>
-          )}
-
-          {watchlistId && !showAddToList && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full mt-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                updateStatusMutation.mutate({
-                  id: watchlistId,
-                  status: status === "watching" ? "plan_to_watch" : "watching",
-                });
-              }}
-              disabled={updateStatusMutation.isPending}
-            >
-              {updateStatusMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : status === "watching" ? (
-                <>
-                  <Clock className="h-4 w-4 mr-2" />
-                  Move to Plan to Watch
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Move to Watching
-                </>
-              )}
-            </Button>
           )}
         </div>
 

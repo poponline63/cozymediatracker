@@ -3,6 +3,7 @@ import {
   watchlist, 
   currentlyWatching,
   watchSessions,
+  ratings,
   type User, 
   type InsertUser, 
   type Watchlist, 
@@ -10,14 +11,14 @@ import {
   type CurrentlyWatching,
   type InsertCurrentlyWatching,
   type WatchSession,
-  type InsertWatchSession
+  type InsertWatchSession,
+  type Rating
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
-import { sql } from "drizzle-orm";
 
 const PostgresSessionStore = connectPg(session);
 
@@ -34,10 +35,9 @@ export interface IStorage {
   updateProgress(id: number, progress: number, seasonEpisodeInfo?: { currentSeason?: number, currentEpisode?: number }): Promise<CurrentlyWatching>;
   markAsCompleted(id: number): Promise<CurrentlyWatching>;
   stopWatching(id: number): Promise<void>;
-  getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>; // Added method
-  getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>; // Added method
-  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>; // Added method
-
+  getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>; 
+  getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>; 
+  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>; 
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -61,6 +61,11 @@ export interface IStorage {
       avatarUrl?: string;
     }
   ): Promise<User>;
+
+  // Rating operations
+  upsertRating(userId: number, mediaId: string, rating: number): Promise<Rating>;
+  getRatingsByMediaIds(userId: number, mediaIds: string[]): Promise<Rating[]>;
+  deleteRating(userId: number, mediaId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -361,6 +366,59 @@ export class DatabaseStorage implements IStorage {
     }
 
     return user;
+  }
+
+  // Rating operations
+  async upsertRating(userId: number, mediaId: string, rating: number): Promise<Rating> {
+    // Check if rating exists
+    const [existingRating] = await db
+      .select()
+      .from(ratings)
+      .where(and(eq(ratings.userId, userId), eq(ratings.mediaId, mediaId)));
+
+    if (existingRating) {
+      // Update existing rating
+      const [updated] = await db
+        .update(ratings)
+        .set({
+          rating,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(ratings.userId, userId), eq(ratings.mediaId, mediaId)))
+        .returning();
+      return updated;
+    } else {
+      // Create new rating
+      const [newRating] = await db
+        .insert(ratings)
+        .values({
+          userId,
+          mediaId,
+          rating,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      return newRating;
+    }
+  }
+
+  async getRatingsByMediaIds(userId: number, mediaIds: string[]): Promise<Rating[]> {
+    return db
+      .select()
+      .from(ratings)
+      .where(
+        and(
+          eq(ratings.userId, userId),
+          sql`${ratings.mediaId} = ANY(${mediaIds})`
+        )
+      );
+  }
+
+  async deleteRating(userId: number, mediaId: string): Promise<void> {
+    await db
+      .delete(ratings)
+      .where(and(eq(ratings.userId, userId), eq(ratings.mediaId, mediaId)));
   }
 }
 
