@@ -5,10 +5,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Watchlist } from "@shared/schema";
+import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 
 interface MovieGridProps {
-  items: any[];
+  items: (Watchlist | CurrentlyWatching)[];
   isLoading: boolean;
   showAddToList?: boolean;
   showProgress?: boolean;
@@ -112,30 +112,30 @@ export default function MovieGrid({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map((item) => {
         const watchlistItem = watchlist?.find(
-          (w) => w.mediaId === (item.imdbID || item.mediaId)
+          (w) => w.mediaId === (item.mediaId)
         );
 
         return (
-          <div key={item.imdbID || item.id} className="space-y-2">
+          <div key={item.id} className="space-y-2">
             <div
               className="cursor-pointer"
-              onClick={() => onItemClick?.(item.imdbID || item.mediaId)}
+              onClick={() => onItemClick?.(item.mediaId)}
             >
               <MediaCard
-                id={item.imdbID || item.mediaId}
-                title={item.Title || item.title}
-                posterUrl={item.Poster || item.posterUrl}
-                type={item.Type || item.type}
+                id={item.mediaId}
+                title={item.title}
+                posterUrl={item.posterUrl}
+                type={item.type}
                 showAddToList={!watchlistItem && showAddToList}
                 showProgress={showProgress}
                 showRemove={showRemove}
-                progress={item.progress}
+                progress={'progress' in item ? item.progress : undefined}
                 watchlistId={watchlistItem?.id}
-                status={watchlistItem?.status}
+                status={'status' in item ? item.status : undefined}
               />
             </div>
             {/* Button for items in watchlist */}
-            {item.status === "plan_to_watch" && (
+            {'status' in item && item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
                 size="sm"
@@ -147,7 +147,7 @@ export default function MovieGrid({
               </Button>
             )}
             {/* Button for items in currently watching */}
-            {item.status === "watching" && (
+            {'status' in item && item.status === "watching" && (
               <Button
                 className="w-full"
                 size="sm"

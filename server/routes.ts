@@ -4,6 +4,37 @@ import { storage } from "./storage";
 import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/schema";
 
 export function registerRoutes(app: Express): Server {
+  // Add the profile update route
+  app.patch("/api/user", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { username, password, avatarUrl } = req.body;
+
+      // Check if username is already taken
+      if (username !== req.user!.username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Username already taken" });
+        }
+      }
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(req.user!.id, {
+        username,
+        password,
+        avatarUrl,
+      });
+
+      // Return updated user without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Currently Watching routes
   app.get("/api/currently-watching", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -258,6 +289,27 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error moving to watchlist:", error);
       res.status(500).json({ message: "Failed to move to watchlist" });
+    }
+  });
+
+  // Recommendations route
+  app.get("/api/recommendations", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      // Get user's completed items
+      const completedItems = await storage.getCompletedMedia(req.user!.id);
+
+      // Get recommended items based on completion patterns
+      const recommendations = await storage.getRecommendations(
+        req.user!.id,
+        []  // We'll implement genre-based recommendations in a future update
+      );
+
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error generating recommendations:", error);
+      res.status(500).json({ message: "Failed to generate recommendations" });
     }
   });
 

@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
-import type { Watchlist, CurrentlyWatching } from "@shared/schema";
-import { BarChart3, User, Clock } from "lucide-react";
+import type { Watchlist, CurrentlyWatching, User } from "@shared/schema";
+import { BarChart3, UserIcon, Clock, Settings2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -15,6 +15,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { UpdateProfileForm } from "@/components/update-profile-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface Statistics {
   totalWatchtime: number;
@@ -37,7 +48,12 @@ export default function ProfilePage() {
     queryKey: ["/api/currently-watching"],
   });
 
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/user"],
+  });
+
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
+  const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
 
   // Ensure we're explicitly setting the status when filtering and always returning an array
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
@@ -68,9 +84,44 @@ export default function ProfilePage() {
   return (
     <Layout>
       <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
-        <div className="flex items-center gap-3">
-          <User className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-semibold">My Profile</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={user?.avatarUrl || undefined} alt={user?.username} />
+              <AvatarFallback>{user?.username?.[0]?.toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-2xl font-semibold">{user?.username}</h1>
+              <p className="text-muted-foreground">
+                Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
+          </div>
+          <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Settings2 className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Update Profile</DialogTitle>
+                <DialogDescription>
+                  Make changes to your profile here. Click save when you're done.
+                </DialogDescription>
+              </DialogHeader>
+              {user && (
+                <UpdateProfileForm
+                  defaultValues={{
+                    username: user.username,
+                    avatarUrl: user.avatarUrl || '',
+                  }}
+                  onSuccess={() => setIsUpdateProfileOpen(false)}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Currently Watching Section */}

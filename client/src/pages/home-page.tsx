@@ -4,6 +4,7 @@ import type { Watchlist } from "@shared/schema";
 import MovieGrid from "@/components/movie-grid";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Layout from "@/components/layout";
+import Recommendations from "@/components/recommendations";
 
 export default function HomePage() {
   const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
@@ -20,6 +21,9 @@ export default function HomePage() {
           <User className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-semibold">My Profile</h1>
         </div>
+
+        {/* Add Recommendations section */}
+        <Recommendations />
 
         <div className="space-y-6">
           <div className="flex items-center gap-3">

@@ -35,6 +35,9 @@ export interface IStorage {
   markAsCompleted(id: number): Promise<CurrentlyWatching>;
   stopWatching(id: number): Promise<void>;
   getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>; // Added method
+  getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>; // Added method
+  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>; // Added method
+
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -49,6 +52,15 @@ export interface IStorage {
   createWatchSession(userId: number, session: InsertWatchSession): Promise<WatchSession>;
 
   sessionStore: session.Store;
+  // Add new method for updating user profile
+  updateUser(
+    id: number,
+    updates: {
+      username?: string;
+      password?: string;
+      avatarUrl?: string;
+    }
+  ): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -148,12 +160,63 @@ export class DatabaseStorage implements IStorage {
     await db.delete(currentlyWatching).where(eq(currentlyWatching.id, id));
   }
 
-  async getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined> { // Added method implementation
+  async getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined> { 
     const [item] = await db
       .select()
       .from(currentlyWatching)
       .where(eq(currentlyWatching.id, id));
     return item;
+  }
+
+  async getCompletedMedia(userId: number): Promise<CurrentlyWatching[]> {
+    return db
+      .select()
+      .from(currentlyWatching)
+      .where(
+        and(
+          eq(currentlyWatching.userId, userId),
+          eq(currentlyWatching.isCompleted, true)
+        )
+      )
+      .orderBy(desc(currentlyWatching.updatedAt));
+  }
+
+  async getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]> {
+    // Get user's existing media IDs to exclude them
+    const existingMediaIds = await db
+      .select({ mediaId: currentlyWatching.mediaId })
+      .from(currentlyWatching)
+      .where(eq(currentlyWatching.userId, userId));
+
+    const watchlistMediaIds = await db
+      .select({ mediaId: watchlist.mediaId })
+      .from(watchlist)
+      .where(eq(watchlist.userId, userId));
+
+    const excludeMediaIds = [...existingMediaIds, ...watchlistMediaIds].map(
+      (item) => item.mediaId
+    );
+
+    // Get recommendations based on other users who completed similar media
+    const recommendations = await db
+      .select({
+        mediaId: currentlyWatching.mediaId,
+        title: currentlyWatching.title,
+        type: currentlyWatching.type,
+        posterUrl: currentlyWatching.posterUrl,
+      })
+      .from(currentlyWatching)
+      .where(
+        and(
+          sql`${currentlyWatching.mediaId} NOT IN ${excludeMediaIds}`,
+          eq(currentlyWatching.isCompleted, true)
+        )
+      )
+      .groupBy(sql`${currentlyWatching.mediaId}, ${currentlyWatching.title}, ${currentlyWatching.type}, ${currentlyWatching.posterUrl}`)
+      .orderBy(sql`count(*) desc`)
+      .limit(10);
+
+    return recommendations;
   }
 
 
@@ -247,19 +310,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWatchSession(userId: number, session: InsertWatchSession): Promise<WatchSession> {
+    // Ensure we have valid dates by explicitly checking and converting
+    const startTime = session.startTime ? new Date(session.startTime) : new Date();
+    const endTime = session.endTime ? new Date(session.endTime) : new Date();
+    const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+
     const [newSession] = await db
       .insert(watchSessions)
       .values({
         ...session,
         userId,
-        duration: Math.floor((new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 60000),
+        duration,
       })
       .returning();
 
     await db
       .update(currentlyWatching)
       .set({
-        totalWatchtime: sql`total_watchtime + ${newSession.duration}`,
+        totalWatchtime: sql`total_watchtime + ${duration}`,
         lastWatched: new Date(),
       })
       .where(and(
@@ -268,6 +336,31 @@ export class DatabaseStorage implements IStorage {
       ));
 
     return newSession;
+  }
+
+  async updateUser(
+    id: number,
+    updates: {
+      username?: string;
+      password?: string;
+      avatarUrl?: string;
+    }
+  ): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        username: updates.username,
+        password: updates.password,
+        avatarUrl: updates.avatarUrl,
+      })
+      .where(eq(users.id, id))
+      .returning();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
   }
 }
 
