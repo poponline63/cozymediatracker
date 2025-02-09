@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Play, Clock } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { Watchlist } from "@shared/schema";
 
 interface MovieGridItem {
   id: string;
@@ -37,7 +38,7 @@ export default function MovieGrid({
 }: MovieGridProps) {
   const { toast } = useToast();
 
-  const { data: watchlist } = useQuery({
+  const { data: watchlist } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
   });
 
@@ -55,7 +56,7 @@ export default function MovieGrid({
     onSuccess: (data, watchlistId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      const item = items.find(item => item.id === watchlistId);
+      const item = items.find(item => item.id === watchlistId.toString());
       toast({
         title: "Started watching",
         description: `${item?.title} has been moved to your currently watching list`,
@@ -70,6 +71,7 @@ export default function MovieGrid({
     },
   });
 
+  // Similar update for moveToWatchlistMutation
   const moveToWatchlistMutation = useMutation({
     mutationFn: async (currentlyWatchingId: number) => {
       const res = await apiRequest("PATCH", `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`, {});
@@ -82,7 +84,7 @@ export default function MovieGrid({
     onSuccess: (data, currentlyWatchingId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      const item = items.find(item => item.id === currentlyWatchingId);
+      const item = items.find(item => item.id === currentlyWatchingId.toString());
       toast({
         title: "Moved to watchlist",
         description: `${item?.title} has been moved to your watchlist`,
@@ -123,7 +125,7 @@ export default function MovieGrid({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map((item) => {
         const watchlistItem = watchlist?.find(
-          (w) => w.mediaId === item.mediaId
+          (w: Watchlist) => w.mediaId === item.mediaId
         );
 
         return (
@@ -147,7 +149,6 @@ export default function MovieGrid({
               />
             </div>
 
-            {/* Button for items in plan to watch */}
             {item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
@@ -160,7 +161,6 @@ export default function MovieGrid({
               </Button>
             )}
 
-            {/* Button for items in currently watching */}
             {item.status === "watching" && (
               <Button
                 className="w-full"

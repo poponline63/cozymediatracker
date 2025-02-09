@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -410,7 +410,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(ratings.userId, userId),
-          sql`${ratings.mediaId} = ANY(${mediaIds})`
+          inArray(ratings.mediaId, mediaIds)
         )
       );
   }
