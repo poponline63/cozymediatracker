@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist, CurrentlyWatching } from "@shared/schema";
-import { BarChart3, User, Clock, ListRestart } from "lucide-react";
+import { BarChart3, User, Clock } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -15,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface Statistics {
   totalWatchtime: number;
@@ -40,15 +39,18 @@ export default function ProfilePage() {
 
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
 
+  // Ensure we're explicitly setting the status when filtering and always returning an array
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
     ...item,
-    status: "plan_to_watch" 
+    status: "plan_to_watch" // Explicitly set status
   })) || [];
 
+  // Statistics queries
   const { data: stats } = useQuery<Statistics>({
     queryKey: ["/api/statistics"],
   });
 
+  // Calculate completion statistics
   const totalItems = currentlyWatching?.length || 0;
   const completedItems = currentlyWatching?.filter(item => item.isCompleted).length || 0;
   const inProgressItems = currentlyWatching?.filter(item => !item.isCompleted && (item.progress || 0) > 0).length || 0;
@@ -60,6 +62,7 @@ export default function ProfilePage() {
     { name: "Not Started", value: notStartedItems, color: "#6b7280" },
   ].filter(item => item.value > 0);
 
+  // Ensure currentlyWatching is always an array
   const currentlyWatchingArray = currentlyWatching || [];
 
   return (
@@ -70,6 +73,7 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-semibold">My Profile</h1>
         </div>
 
+        {/* Currently Watching Section */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
@@ -94,6 +98,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left side: Selected media or watchlist */}
           <div className="space-y-6">
             {selectedMediaId && (
               <MediaDetails
@@ -105,6 +110,7 @@ export default function ProfilePage() {
             )}
           </div>
 
+          {/* Right side: Progress chart */}
           <div className="p-6 border rounded-lg bg-card h-fit">
             <div className="flex items-center gap-3 mb-6">
               <BarChart3 className="h-8 w-8 text-primary" />
@@ -169,6 +175,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Watchlist Tabs Section */}
         <div>
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
@@ -187,30 +194,6 @@ export default function ProfilePage() {
                 showProgress
                 showRemove
               />
-              {currentlyWatchingArray.length > 0 && (
-                <div className="space-y-2">
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => setSelectedMediaId(currentlyWatchingArray[0].mediaId)}
-                  >
-                    <Clock className="w-4 h-4 mr-2" />
-                    Manage Watch Progress
-                  </Button>
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    onClick={() => {
-                      if (currentlyWatchingArray[0]) {
-                        setSelectedMediaId(currentlyWatchingArray[0].mediaId);
-                      }
-                    }}
-                  >
-                    <ListRestart className="w-4 h-4 mr-2" />
-                    Move Selected to Watchlist
-                  </Button>
-                </div>
-              )}
             </TabsContent>
 
             <TabsContent value="plan_to_watch" className="space-y-4">
