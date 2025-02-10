@@ -251,22 +251,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async moveToWatchlist(userId: number, currentlyWatchingId: number): Promise<Watchlist> {
-    // First verify the item exists and belongs to the user
-    const item = await this.getCurrentlyWatchingItem(currentlyWatchingId);
-    if (!item) {
-      console.error("Currently watching item not found:", currentlyWatchingId);
-      throw new Error("Currently watching item not found");
-    }
-
-    if (item.userId !== userId) {
-      console.error("Not authorized to move item:", { userId, itemUserId: item.userId });
-      throw new Error("Not authorized to move this item");
-    }
-
     try {
-      return await db.transaction(async (tx) => {
-        console.log("Starting transaction to move item to watchlist:", item.title);
+      // First verify the item exists and belongs to the user
+      const item = await this.getCurrentlyWatchingItem(currentlyWatchingId);
+      if (!item) {
+        console.error("Currently watching item not found:", currentlyWatchingId);
+        throw new Error("Currently watching item not found");
+      }
 
+      if (item.userId !== userId) {
+        console.error("Not authorized to move item:", { userId, itemUserId: item.userId });
+        throw new Error("Not authorized to move this item");
+      }
+
+      return await db.transaction(async (tx) => {
         // Add to watchlist first
         const [watchlistItem] = await tx
           .insert(watchlist)
@@ -277,9 +275,9 @@ export class DatabaseStorage implements IStorage {
             type: item.type,
             posterUrl: item.posterUrl,
             status: "plan_to_watch",
-            progress: item.progress, // Preserve progress
-            totalWatchtime: item.totalWatchtime, // Preserve watch time
-            lastWatched: item.lastWatched, // Preserve last watched time
+            progress: item.progress,
+            totalWatchtime: item.totalWatchtime,
+            lastWatched: item.lastWatched,
             addedAt: new Date(),
             updatedAt: new Date(),
           })
@@ -288,8 +286,6 @@ export class DatabaseStorage implements IStorage {
         if (!watchlistItem) {
           throw new Error("Failed to create watchlist item");
         }
-
-        console.log("Added to watchlist:", watchlistItem);
 
         // Then remove from currently watching
         const [deletedItem] = await tx
@@ -301,13 +297,11 @@ export class DatabaseStorage implements IStorage {
           throw new Error("Failed to remove item from currently watching");
         }
 
-        console.log("Successfully removed from currently watching:", deletedItem);
-
         return watchlistItem;
       });
     } catch (error) {
       console.error("Transaction failed:", error);
-      throw new Error("Failed to move item to watchlist");
+      throw error; // Re-throw the error to be handled by the route handler
     }
   }
 

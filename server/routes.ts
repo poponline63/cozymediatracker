@@ -339,28 +339,34 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.patch("/api/currently-watching/:id/move-to-watchlist", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        console.log("Invalid ID format:", req.params.id);
         return res.status(400).json({ message: "Invalid ID format" });
       }
 
-      console.log(`Attempting to move item ${id} to watchlist`);
       const watchlistItem = await storage.moveToWatchlist(req.user!.id, id);
-      console.log(`Successfully moved item to watchlist: ${watchlistItem.title}`);
-
-      res.json({ status: "moved_to_watchlist", watchlist: watchlistItem });
+      res.json({
+        status: "moved_to_watchlist",
+        watchlist: watchlistItem
+      });
     } catch (error: any) {
       console.error("Error moving to watchlist:", error);
+
       if (error.message === "Currently watching item not found") {
         return res.status(404).json({ message: error.message });
       } else if (error.message === "Not authorized to move this item") {
         return res.status(403).json({ message: error.message });
+      } else if (error.message === "Failed to create watchlist item" ||
+                 error.message === "Failed to remove item from currently watching") {
+        return res.status(500).json({ message: error.message });
       }
-      res.status(500).json({ message: "Failed to move to watchlist" });
+
+      res.status(500).json({ message: "Failed to move item to watchlist" });
     }
   });
 

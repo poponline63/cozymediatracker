@@ -49,33 +49,33 @@ export default function MovieGrid({
         throw new Error("Invalid item ID");
       }
 
-      console.log("Moving to watchlist:", currentlyWatchingId);
-      const res = await apiRequest(
-        "PATCH",
-        `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`,
-        {}
-      );
+      try {
+        const res = await apiRequest(
+          "PATCH",
+          `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`
+        );
 
-      if (!res.ok) {
-        const error = await res.json();
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Failed to move item to watchlist");
+        }
+
+        return res.json();
+      } catch (error: any) {
+        console.error("Move to watchlist error:", error);
         throw new Error(error.message || "Failed to move item to watchlist");
       }
-
-      const data = await res.json();
-      console.log("Move to watchlist response:", data);
-      return data;
     },
-    onSuccess: (_, currentlyWatchingId) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      const item = items.find((item) => item.id === currentlyWatchingId.toString());
+
       toast({
-        title: "Moved to watchlist",
-        description: `${item?.title} has been moved to your watchlist`,
+        title: "Success",
+        description: "Item moved to watchlist successfully",
       });
     },
     onError: (error: Error) => {
-      console.error("Move to watchlist error:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -164,7 +164,6 @@ export default function MovieGrid({
               />
             </div>
 
-            {/* Show "Start Watching" button in profile/watchlist view */}
             {watchlistItem && item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
@@ -177,15 +176,22 @@ export default function MovieGrid({
                 Start Watching
               </Button>
             )}
-            {/* Show "Move to Watchlist" button for currently watching items */}
             {item.status === "watching" && (
               <Button
                 className="w-full"
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  console.log("Attempting to move to watchlist:", item);
-                  moveToWatchlistMutation.mutate(Number(item.id));
+                  const id = parseInt(item.id);
+                  if (!isNaN(id)) {
+                    moveToWatchlistMutation.mutate(id);
+                  } else {
+                    toast({
+                      title: "Error",
+                      description: "Invalid item ID",
+                      variant: "destructive",
+                    });
+                  }
                 }}
                 disabled={moveToWatchlistMutation.isPending}
               >
