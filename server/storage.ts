@@ -204,54 +204,33 @@ export class DatabaseStorage implements IStorage {
         ...watchlistMediaIds.map(item => item.mediaId)
       ];
 
-      // If no media to exclude, just return popular completed items
-      if (excludeMediaIds.length === 0) {
-        return db
-          .select({
-            mediaId: currentlyWatching.mediaId,
-            title: currentlyWatching.title,
-            type: currentlyWatching.type,
-            posterUrl: currentlyWatching.posterUrl,
-          })
-          .from(currentlyWatching)
-          .where(eq(currentlyWatching.isCompleted, true))
-          .groupBy(
-            currentlyWatching.mediaId,
-            currentlyWatching.title,
-            currentlyWatching.type,
-            currentlyWatching.posterUrl
-          )
-          .orderBy(sql`count(*) desc`)
-          .limit(10);
-      }
-
-      // Get recommendations based on other users who completed similar media
-      // Exclude any media that's in user's watchlist or currently watching
-      const recommendations = await db
-        .select({
-          mediaId: currentlyWatching.mediaId,
-          title: currentlyWatching.title,
-          type: currentlyWatching.type,
-          posterUrl: currentlyWatching.posterUrl,
-        })
-        .from(currentlyWatching)
-        .where(
-          and(
-            sql`${currentlyWatching.mediaId} NOT IN (${sql`${excludeMediaIds.map(() => '?').join(', ')}`})`,
-            eq(currentlyWatching.isCompleted, true)
-          )
+      // Query for recommendations, excluding user's current items
+      const recommendations = await db.execute<{ mediaId: string; title: string; type: string; posterUrl: string | null }>(sql`
+        WITH RankedMedia AS (
+          SELECT 
+            media_id,
+            title,
+            type,
+            poster_url,
+            COUNT(*) as completion_count,
+            ROW_NUMBER() OVER (PARTITION BY media_id ORDER BY COUNT(*) DESC) as rn
+          FROM currently_watching
+          WHERE is_completed = true
+            AND media_id NOT IN (${sql.join(excludeMediaIds, sql`, `)})
+          GROUP BY media_id, title, type, poster_url
         )
-        .prepare(excludeMediaIds)
-        .groupBy(
-          currentlyWatching.mediaId,
-          currentlyWatching.title,
-          currentlyWatching.type,
-          currentlyWatching.posterUrl
-        )
-        .orderBy(sql`count(*) desc`)
-        .limit(10);
+        SELECT 
+          media_id as "mediaId",
+          title,
+          type,
+          poster_url as "posterUrl"
+        FROM RankedMedia
+        WHERE rn = 1
+        ORDER BY completion_count DESC
+        LIMIT 10
+      `);
 
-      return recommendations;
+      return recommendations.rows;
     } catch (error) {
       console.error('Error generating recommendations:', error);
       return [];
@@ -293,53 +272,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserStatistics(userId: number) {
-    // Get statistics for currently watching items
+    // Get only essential statistics for currently watching items
     const [watchingStats] = await db
       .select({
-        totalWatchtime: sql<number>`sum(total_watchtime)`,
         totalItems: sql<number>`count(*)`,
-        completedItems: sql<number>`sum(case when is_completed then 1 else 0 end)`,
         inProgressItems: sql<number>`sum(case when not is_completed and progress > 0 then 1 else 0 end)`,
       })
       .from(currentlyWatching)
       .where(eq(currentlyWatching.userId, userId));
 
-    const [weeklyStats] = await db
-      .select({
-        averageDailyWatchtime: sql<number>`avg(duration)`,
-      })
-      .from(watchSessions)
-      .where(
-        and(
-          eq(watchSessions.userId, userId),
-          sql`${watchSessions.startTime} > now() - interval '7 days'`
-        )
-      );
-
-    const watchTimeByDay = await db
-      .select({
-        day: sql<string>`to_char(start_time, 'Day')`,
-        hours: sql<number>`sum(duration)`,
-      })
-      .from(watchSessions)
-      .where(eq(watchSessions.userId, userId))
-      .groupBy(sql`to_char(start_time, 'Day')`)
-      .orderBy(sql`min(extract(dow from start_time))`);
-
-    const watchTimeByType = await db
-      .select({
-        type: currentlyWatching.type,
-        hours: sql<number>`sum(total_watchtime)`,
-      })
-      .from(currentlyWatching)
-      .where(eq(currentlyWatching.userId, userId))
-      .groupBy(currentlyWatching.type);
-
+    // Return only the essential counts
     return {
-      ...watchingStats,
-      ...weeklyStats,
-      watchTimeByDay,
-      watchTimeByType,
+      totalItems: watchingStats?.totalItems || 0,
+      inProgressItems: watchingStats?.inProgressItems || 0,
     };
   }
 
@@ -355,7 +300,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(currentlyWatching, eq(watchSessions.mediaId, currentlyWatching.mediaId))
       .where(eq(watchSessions.userId, userId))
       .orderBy(desc(watchSessions.startTime))
-      .limit(10);
+      .limit(5);
   }
 
   async createWatchSession(userId: number, session: InsertWatchSession): Promise<WatchSession> {

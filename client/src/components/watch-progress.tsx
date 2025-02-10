@@ -6,13 +6,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Check, Loader2, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface WatchProgressProps {
   watchlistId: number;
   mediaId: string;
   currentProgress?: number;
   type: string;
+  compact?: boolean;
 }
 
 export default function WatchProgress({
@@ -20,6 +21,7 @@ export default function WatchProgress({
   mediaId,
   currentProgress = 0,
   type,
+  compact = false,
 }: WatchProgressProps) {
   const [progress, setProgress] = useState(currentProgress);
   const [hours, setHours] = useState("0");
@@ -55,71 +57,6 @@ export default function WatchProgress({
     }
   }, [progress, details?.Runtime]);
 
-  const validateTimeInput = (value: string, field: 'hours' | 'minutes' | 'seconds'): boolean => {
-    const num = parseInt(value);
-
-    // Check for negative values
-    if (num < 0) {
-      toast({
-        title: "Invalid input",
-        description: "Time values cannot be negative",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    // Check minutes and seconds range
-    if ((field === 'minutes' || field === 'seconds') && num >= 60) {
-      toast({
-        title: "Invalid input",
-        description: `${field} must be less than 60`,
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleTimeInput = (value: string, field: 'hours' | 'minutes' | 'seconds') => {
-    // Allow empty string for backspace/delete
-    if (value === '') {
-      switch (field) {
-        case 'hours':
-          setHours('0');
-          break;
-        case 'minutes':
-          setMinutes('0');
-          break;
-        case 'seconds':
-          setSeconds('0');
-          break;
-      }
-      return;
-    }
-
-    // Validate input is a number
-    if (!/^\d*$/.test(value)) {
-      return;
-    }
-
-    if (!validateTimeInput(value, field)) {
-      return;
-    }
-
-    switch (field) {
-      case 'hours':
-        setHours(value);
-        break;
-      case 'minutes':
-        setMinutes(value);
-        break;
-      case 'seconds':
-        setSeconds(value);
-        break;
-    }
-  };
-
   const updateMutation = useMutation({
     mutationFn: async ({ id, progress }: { id: number; progress: number }) => {
       const res = await apiRequest("PATCH", `/api/currently-watching/${id}/progress`, {
@@ -147,7 +84,46 @@ export default function WatchProgress({
     },
   });
 
-  // Handle time input updates
+  const handleTimeInput = (value: string, field: 'hours' | 'minutes' | 'seconds') => {
+    // Allow empty string for backspace/delete
+    if (value === '') {
+      switch (field) {
+        case 'hours':
+          setHours('0');
+          break;
+        case 'minutes':
+          setMinutes('0');
+          break;
+        case 'seconds':
+          setSeconds('0');
+          break;
+      }
+      return;
+    }
+
+    // Validate input is a number
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    // Validation limits
+    const num = parseInt(value);
+    if (num < 0) return;
+    if ((field === 'minutes' || field === 'seconds') && num >= 60) return;
+
+    switch (field) {
+      case 'hours':
+        setHours(value);
+        break;
+      case 'minutes':
+        setMinutes(value);
+        break;
+      case 'seconds':
+        setSeconds(value);
+        break;
+    }
+  };
+
   const handleTimeUpdate = () => {
     if (!details?.Runtime) {
       toast({
@@ -163,7 +139,7 @@ export default function WatchProgress({
     const inputSeconds = parseInt(seconds || "0");
 
     const totalInputSeconds = (inputHours * 3600) + (inputMinutes * 60) + inputSeconds;
-    const totalDurationSeconds = parseInt(details.Runtime) * 60; // Runtime is in minutes
+    const totalDurationSeconds = parseInt(details.Runtime) * 60;
 
     if (totalInputSeconds > totalDurationSeconds) {
       toast({
@@ -190,22 +166,41 @@ export default function WatchProgress({
 
   if (detailsError) {
     return (
-      <Card className="mt-4">
-        <CardContent className="py-4">
-          <div className="text-center text-muted-foreground">
-            Failed to load media details. Please try again.
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center text-muted-foreground text-sm">
+        Failed to load progress
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Progress value={progress} className="flex-1 h-2" />
+          <span className="text-sm font-medium whitespace-nowrap">{progress}%</span>
+          <Button
+            variant={progress === 100 ? "default" : "outline"}
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => handleProgressUpdate(progress === 100 ? 0 : 100)}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : progress === 100 ? (
+              <Check className="h-4 w-4 text-primary-foreground" />
+            ) : (
+              <Clock className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
     <Card className="mt-4">
-      <CardHeader>
-        <CardTitle className="text-lg">Track Your Progress</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
             <Clock className="h-4 w-4" />
