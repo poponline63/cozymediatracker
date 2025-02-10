@@ -3,8 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist, CurrentlyWatching, User } from "@shared/schema";
-import { BarChart3, UserIcon, Clock, Settings2, CheckCircle2 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts";
+import { Settings2 } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import MediaDetails from "@/components/media-details";
@@ -26,18 +25,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-
-interface Statistics {
-  totalWatchtime: number;
-  totalItems: number;
-  averageRating: number;
-  ratedItems: number;
-  averageDailyWatchtime: number;
-  watchTimeByDay: Array<{
-    day: string;
-    hours: number;
-  }>;
-}
 
 export default function ProfilePage() {
   const { data: watchlist, isLoading: isLoadingWatchlist } = useQuery<Watchlist[]>({
@@ -62,7 +49,7 @@ export default function ProfilePage() {
     status: "plan_to_watch",
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined // Convert null to undefined for rating
+    rating: item.rating ?? undefined
   })) || [];
 
   // Transform currently watching items with proper type conversions
@@ -72,27 +59,8 @@ export default function ProfilePage() {
     watchlistId: undefined,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined // Convert null to undefined for rating
+    rating: item.rating ?? undefined
   })) || [];
-
-  // Statistics queries
-  const { data: stats } = useQuery<Statistics>({
-    queryKey: ["/api/statistics"],
-    // Add staleTime to prevent unnecessary refetches
-    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
-  });
-
-  // Calculate completion statistics
-  const totalItems = currentlyWatching?.length || 0;
-  const completedItems = currentlyWatching?.filter(item => item.isCompleted).length || 0;
-  const inProgressItems = currentlyWatching?.filter(item => !item.isCompleted && (item.progress || 0) > 0).length || 0;
-  const notStartedItems = totalItems - completedItems - inProgressItems;
-
-  const chartData = [
-    { name: "Completed", value: completedItems, color: "#22c55e" },
-    { name: "In Progress", value: inProgressItems, color: "#3b82f6" },
-    { name: "Not Started", value: notStartedItems, color: "#6b7280" },
-  ].filter(item => item.value > 0);
 
   // Ensure currentlyWatching is always an array
   const currentlyWatchingArray = currentlyWatching || [];
@@ -100,6 +68,7 @@ export default function ProfilePage() {
   return (
     <Layout>
       <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
+        {/* User Profile Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
@@ -140,76 +109,6 @@ export default function ProfilePage() {
           </Dialog>
         </div>
 
-        {/* Statistics Cards Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Watch Time</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Math.floor((stats?.totalWatchtime || 0) / 60)}h {(stats?.totalWatchtime || 0) % 60}m
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Across {stats?.totalItems || 0} items
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Math.floor((stats?.averageDailyWatchtime || 0) / 60)}h {Math.round((stats?.averageDailyWatchtime || 0) % 60)}m
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Based on last 7 days
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Math.round((completedItems / (totalItems || 1)) * 100)}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {completedItems} of {totalItems} completed
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Weekly Watch Time Chart */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Weekly Watch Time</CardTitle>
-            <CardDescription>Your watching activity over the past week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.watchTimeByDay || []}>
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => `${Math.floor(value)}h ${Math.round((value % 1) * 60)}m`}
-                  />
-                  <Bar dataKey="hours" fill="var(--primary)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Currently Watching Section */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
@@ -235,7 +134,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left side: Selected media or watchlist */}
+          {/* Left side: Selected media details */}
           <div className="space-y-6">
             {selectedMediaId && (
               <MediaDetails
@@ -245,55 +144,6 @@ export default function ProfilePage() {
                 isProfileView
               />
             )}
-          </div>
-
-          {/* Right side: Progress chart */}
-          <div className="p-6 border rounded-lg bg-card h-fit">
-            <div className="flex items-center gap-3 mb-6">
-              <BarChart3 className="h-8 w-8 text-primary" />
-              <h2 className="text-lg font-semibold">Your Media Progress</h2>
-            </div>
-
-            <div className="grid grid-cols-1 gap-8">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {chartData.map(({ name, value, color }) => (
-                    <div key={name} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                        <span className="text-sm font-medium">{name}</span>
-                      </div>
-                      <p className="text-2xl font-bold">{value}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.round((value / totalItems) * 100)}% of total
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={2}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `${value} items`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

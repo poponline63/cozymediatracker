@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import WatchProgress from "./watch-progress";
 import type { CurrentlyWatching } from "@shared/schema";
