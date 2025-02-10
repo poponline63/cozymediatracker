@@ -45,16 +45,25 @@ export default function MovieGrid({
   // Move to watchlist mutation
   const moveToWatchlistMutation = useMutation({
     mutationFn: async (currentlyWatchingId: number) => {
+      if (!currentlyWatchingId || isNaN(currentlyWatchingId)) {
+        throw new Error("Invalid item ID");
+      }
+
+      console.log("Moving to watchlist:", currentlyWatchingId);
       const res = await apiRequest(
         "PATCH",
         `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`,
         {}
       );
+
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to move item to watchlist");
       }
-      return res.json();
+
+      const data = await res.json();
+      console.log("Move to watchlist response:", data);
+      return data;
     },
     onSuccess: (_, currentlyWatchingId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
@@ -66,6 +75,7 @@ export default function MovieGrid({
       });
     },
     onError: (error: Error) => {
+      console.error("Move to watchlist error:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -173,7 +183,10 @@ export default function MovieGrid({
                 className="w-full"
                 size="sm"
                 variant="secondary"
-                onClick={() => moveToWatchlistMutation.mutate(Number(item.id))}
+                onClick={() => {
+                  console.log("Attempting to move to watchlist:", item);
+                  moveToWatchlistMutation.mutate(Number(item.id));
+                }}
                 disabled={moveToWatchlistMutation.isPending}
               >
                 <Clock className="w-4 h-4 mr-2" />

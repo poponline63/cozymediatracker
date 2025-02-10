@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -33,7 +33,14 @@ export interface IStorage {
   getCurrentlyWatching(userId: number): Promise<CurrentlyWatching[]>;
   getCurrentlyWatchingByMediaId(userId: number, mediaId: string): Promise<CurrentlyWatching | undefined>;
   startWatching(userId: number, item: InsertCurrentlyWatching): Promise<CurrentlyWatching>;
-  updateProgress(id: number, progress: number): Promise<CurrentlyWatching>;
+  updateProgress(
+    id: number,
+    progress: number,
+    episodeData?: {
+      currentSeason?: number;
+      currentEpisode?: number;
+    }
+  ): Promise<CurrentlyWatching>;
   getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>;
   stopWatching(id: number): Promise<void>;
   markAsCompleted(id: number): Promise<CurrentlyWatching>;
@@ -44,6 +51,7 @@ export interface IStorage {
   addToWatchlist(userId: number, item: InsertWatchlist): Promise<Watchlist>;
   removeFromWatchlist(id: number): Promise<void>;
   getWatchlistItem(id: number): Promise<Watchlist | undefined>;
+  moveToWatchlist(userId: number, currentlyWatchingId: number): Promise<Watchlist>;
 
   // Stats and recommendations
   getUserStatistics(userId: number): Promise<{
@@ -162,11 +170,20 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async updateProgress(id: number, progress: number): Promise<CurrentlyWatching> {
+  async updateProgress(
+    id: number,
+    progress: number,
+    episodeData?: {
+      currentSeason?: number;
+      currentEpisode?: number;
+    }
+  ): Promise<CurrentlyWatching> {
     const [updated] = await db
       .update(currentlyWatching)
       .set({
         progress,
+        currentSeason: episodeData?.currentSeason,
+        currentEpisode: episodeData?.currentEpisode,
         updatedAt: new Date(),
         lastWatched: new Date(),
       })
@@ -231,6 +248,67 @@ export class DatabaseStorage implements IStorage {
       .from(watchlist)
       .where(eq(watchlist.id, id));
     return item;
+  }
+
+  async moveToWatchlist(userId: number, currentlyWatchingId: number): Promise<Watchlist> {
+    // First verify the item exists and belongs to the user
+    const item = await this.getCurrentlyWatchingItem(currentlyWatchingId);
+    if (!item) {
+      console.error("Currently watching item not found:", currentlyWatchingId);
+      throw new Error("Currently watching item not found");
+    }
+
+    if (item.userId !== userId) {
+      console.error("Not authorized to move item:", { userId, itemUserId: item.userId });
+      throw new Error("Not authorized to move this item");
+    }
+
+    try {
+      return await db.transaction(async (tx) => {
+        console.log("Starting transaction to move item to watchlist:", item.title);
+
+        // Add to watchlist first
+        const [watchlistItem] = await tx
+          .insert(watchlist)
+          .values({
+            userId,
+            mediaId: item.mediaId,
+            title: item.title,
+            type: item.type,
+            posterUrl: item.posterUrl,
+            status: "plan_to_watch",
+            progress: item.progress, // Preserve progress
+            totalWatchtime: item.totalWatchtime, // Preserve watch time
+            lastWatched: item.lastWatched, // Preserve last watched time
+            addedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        if (!watchlistItem) {
+          throw new Error("Failed to create watchlist item");
+        }
+
+        console.log("Added to watchlist:", watchlistItem);
+
+        // Then remove from currently watching
+        const [deletedItem] = await tx
+          .delete(currentlyWatching)
+          .where(eq(currentlyWatching.id, currentlyWatchingId))
+          .returning();
+
+        if (!deletedItem) {
+          throw new Error("Failed to remove item from currently watching");
+        }
+
+        console.log("Successfully removed from currently watching:", deletedItem);
+
+        return watchlistItem;
+      });
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      throw new Error("Failed to move item to watchlist");
+    }
   }
 
   // Statistics and recommendations methods
@@ -388,7 +466,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(ratings.userId, userId),
-          sql`${ratings.mediaId} = ANY(${mediaIds})`
+          inArray(ratings.mediaId, mediaIds)
         )
       );
   }

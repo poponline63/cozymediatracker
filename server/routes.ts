@@ -87,7 +87,7 @@ export function registerRoutes(app: Express): Server {
       const item = await storage.updateProgress(
         parseInt(req.params.id),
         progress,
-        { currentSeason, currentEpisode }
+        currentSeason || currentEpisode ? { currentSeason, currentEpisode } : undefined
       );
       console.log(`Progress updated successfully for ${item.title}`);
       res.json(item);
@@ -342,36 +342,24 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      console.log(`Attempting to move item ${req.params.id} to watchlist`);
-      const currentlyWatching = await storage.getCurrentlyWatchingItem(parseInt(req.params.id));
-      if (!currentlyWatching) {
-        console.log(`Currently watching item ${req.params.id} not found`);
-        return res.status(404).json({ message: "Currently watching item not found" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        console.log("Invalid ID format:", req.params.id);
+        return res.status(400).json({ message: "Invalid ID format" });
       }
 
-      if (currentlyWatching.userId !== req.user!.id) {
-        console.log(`User ${req.user!.id} not authorized to move item ${req.params.id}`);
-        return res.status(403).json({ message: "Not authorized to move this item" });
-      }
+      console.log(`Attempting to move item ${id} to watchlist`);
+      const watchlistItem = await storage.moveToWatchlist(req.user!.id, id);
+      console.log(`Successfully moved item to watchlist: ${watchlistItem.title}`);
 
-      // Add to watchlist
-      console.log(`Adding ${currentlyWatching.title} to watchlist`);
-      const watchlist = await storage.addToWatchlist(req.user!.id, {
-        mediaId: currentlyWatching.mediaId,
-        title: currentlyWatching.title,
-        type: currentlyWatching.type,
-        posterUrl: currentlyWatching.posterUrl,
-        status: "plan_to_watch",
-      });
-
-      // Remove from currently watching
-      console.log(`Removing ${currentlyWatching.title} from currently watching`);
-      await storage.stopWatching(parseInt(req.params.id));
-
-      console.log(`Successfully moved ${currentlyWatching.title} to watchlist`);
-      res.json({ status: "moved_to_watchlist", watchlist });
-    } catch (error) {
+      res.json({ status: "moved_to_watchlist", watchlist: watchlistItem });
+    } catch (error: any) {
       console.error("Error moving to watchlist:", error);
+      if (error.message === "Currently watching item not found") {
+        return res.status(404).json({ message: error.message });
+      } else if (error.message === "Not authorized to move this item") {
+        return res.status(403).json({ message: error.message });
+      }
       res.status(500).json({ message: "Failed to move to watchlist" });
     }
   });
