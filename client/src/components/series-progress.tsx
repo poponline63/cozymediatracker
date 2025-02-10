@@ -10,6 +10,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 interface SeriesProgressProps {
   watchlistId: number;
@@ -51,8 +52,11 @@ export default function SeriesProgress({
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all relevant queries to update UI
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching", mediaId] });
+
       toast({
         title: "Progress Updated",
         description: `Updated to Season ${season}, Episode ${episode}`,
@@ -69,11 +73,10 @@ export default function SeriesProgress({
 
   // Calculate progress as a percentage based on current position in series
   const calculateProgress = (season: number, episode: number, totalSeasons: number) => {
-    // Assuming average of 12 episodes per season for simplicity
-    const episodesPerSeason = 12;
+    const episodesPerSeason = 12; // Average number of episodes per season
     const totalEpisodes = totalSeasons * episodesPerSeason;
     const watchedEpisodes = ((season - 1) * episodesPerSeason) + episode;
-    return Math.round((watchedEpisodes / totalEpisodes) * 100);
+    return Math.min(Math.round((watchedEpisodes / totalEpisodes) * 100), 100);
   };
 
   return (
@@ -82,8 +85,11 @@ export default function SeriesProgress({
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Season</label>
           <Select
-            value={season.toString()}
-            onValueChange={(value) => setSeason(parseInt(value))}
+            value={season?.toString()}
+            onValueChange={(value) => {
+              setSeason(parseInt(value));
+              setEpisode(1); // Reset episode when season changes
+            }}
           >
             <SelectTrigger>
               <SelectValue />
@@ -100,7 +106,7 @@ export default function SeriesProgress({
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Episode</label>
           <Select
-            value={episode.toString()}
+            value={episode?.toString()}
             onValueChange={(value) => setEpisode(parseInt(value))}
           >
             <SelectTrigger>
@@ -121,7 +127,14 @@ export default function SeriesProgress({
         onClick={() => updateProgressMutation.mutate()}
         disabled={updateProgressMutation.isPending}
       >
-        Update Progress
+        {updateProgressMutation.isPending ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Updating...
+          </>
+        ) : (
+          'Update Progress'
+        )}
       </Button>
     </div>
   );

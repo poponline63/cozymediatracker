@@ -341,11 +341,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentWatchSessions(userId: number, mediaId?: string) {
-    const query = db
+    let query = db
       .select({
         id: watchSessions.id,
         startTime: sql<string>`to_char(${watchSessions.startTime}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
-        duration: watchSessions.duration,
+        duration: sql<number>`COALESCE(${watchSessions.duration}, 0)`, // Ensure duration is never null
         title: currentlyWatching.title,
       })
       .from(watchSessions)
@@ -358,7 +358,7 @@ export class DatabaseStorage implements IStorage {
       .limit(10);
 
     if (mediaId) {
-      return query.where(eq(currentlyWatching.mediaId, mediaId));
+      query = query.where(eq(currentlyWatching.mediaId, mediaId));
     }
 
     return query;

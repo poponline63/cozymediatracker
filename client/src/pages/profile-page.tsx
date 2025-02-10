@@ -54,7 +54,9 @@ export default function ProfilePage() {
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
     rating: item.rating ?? undefined,
-    watchlistId: item.id
+    watchlistId: item.id,
+    currentSeason: item.type === "series" ? 1 : undefined,
+    totalSeasons: item.type === "series" ? 1 : undefined,
   })) || [];
 
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
@@ -70,15 +72,17 @@ export default function ProfilePage() {
 
   const completionStats = watchlist?.reduce(
     (acc, item) => {
-      // For series, consider it completed if we've watched all episodes of the last season
-      const isCompleted = item.type === "series"
-        ? item.currentSeason === item.totalSeasons && item.progress === 100
-        : item.progress === 100;
-
-      if (isCompleted) {
-        acc.completed += 1;
-      } else if (item.progress > 0) {
-        acc.incomplete += 1;
+      if (item.type === "series") {
+        if (item.progress === 100) {
+          acc.completed += 1;
+        } else if (item.progress && item.progress > 0) {
+          acc.incomplete += 1;
+        }
+      } else {
+        // For movies, any progress > 0 counts as completed
+        if (item.progress && item.progress > 0) {
+          acc.completed += 1;
+        }
       }
       return acc;
     },
@@ -221,7 +225,6 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         )}
-
         <div>
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
