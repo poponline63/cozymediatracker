@@ -44,25 +44,28 @@ export default function ProfilePage() {
 
   // Transform watchlist items with proper type conversions
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
-    ...item,
     id: item.id.toString(),
-    status: "plan_to_watch",
+    mediaId: item.mediaId,
+    title: item.title,
+    type: item.type,
+    status: "plan_to_watch" as const,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined
+    rating: item.rating ?? undefined,
+    watchlistId: item.id
   })) || [];
 
   // Transform currently watching items with proper type conversions
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
-    ...item,
-    watchlistId: undefined,
+    id: item.id.toString(),
+    mediaId: item.mediaId,
+    title: item.title,
+    type: item.type,
+    status: "watching" as const,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    status: "watching"
-})) || [];
-
-  // Ensure currentlyWatching is always an array
-  const currentlyWatchingArray = currentlyWatching || [];
+    watchlistId: undefined,
+  })) || [];
 
   return (
     <Layout>
@@ -113,7 +116,7 @@ export default function ProfilePage() {
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
             <div className="flex w-max space-x-4 p-4">
-              {currentlyWatchingArray.map((item) => (
+              {currentlyWatchingItems.map((item) => (
                 <div
                   key={item.id}
                   className="w-[150px] cursor-pointer"
@@ -132,26 +135,12 @@ export default function ProfilePage() {
           </ScrollArea>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left side: Selected media details */}
-          <div className="space-y-6">
-            {selectedMediaId && (
-              <MediaDetails
-                mediaId={selectedMediaId}
-                isOpen={!!selectedMediaId}
-                onClose={() => setSelectedMediaId(null)}
-                isProfileView
-              />
-            )}
-          </div>
-        </div>
-
         {/* Watchlist Tabs Section */}
         <div>
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
               <TabsTrigger value="watching">
-                Currently Watching ({currentlyWatchingArray.length})
+                Currently Watching ({currentlyWatchingItems.length})
               </TabsTrigger>
               <TabsTrigger value="plan_to_watch">
                 Plan to Watch ({planToWatch.length})
@@ -164,6 +153,7 @@ export default function ProfilePage() {
                 isLoading={isLoadingCurrentlyWatching}
                 showProgress
                 showRemove
+                onItemClick={(id) => setSelectedMediaId(id)}
               />
             </TabsContent>
 
@@ -178,6 +168,16 @@ export default function ProfilePage() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Media Details Dialog */}
+        {selectedMediaId && (
+          <MediaDetails
+            mediaId={selectedMediaId}
+            isOpen={!!selectedMediaId}
+            onClose={() => setSelectedMediaId(null)}
+            isProfileView
+          />
+        )}
       </div>
     </Layout>
   );

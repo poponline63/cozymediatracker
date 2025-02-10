@@ -112,10 +112,31 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      await storage.stopWatching(parseInt(req.params.id));
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        console.log("Invalid ID format:", req.params.id);
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+
+      console.log(`Attempting to remove item ${id} from currently watching`);
+
+      // Get the item first to make sure it exists and belongs to the user
+      const item = await storage.getCurrentlyWatchingItem(id);
+      if (!item) {
+        console.log(`Currently watching item ${id} not found`);
+        return res.status(404).json({ message: "Currently watching item not found" });
+      }
+      if (item.userId !== req.user!.id) {
+        console.log(`User ${req.user!.id} not authorized to remove item ${id}`);
+        return res.status(403).json({ message: "Not authorized to remove this item" });
+      }
+
+      await storage.stopWatching(id);
+      console.log(`Successfully removed item ${id} from currently watching`);
       res.sendStatus(204);
     } catch (error) {
-      res.status(404).json({ message: "Currently watching item not found" });
+      console.error("Error removing from currently watching:", error);
+      res.status(500).json({ message: "Failed to remove from currently watching" });
     }
   });
 
@@ -321,12 +342,20 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
+      console.log(`Attempting to move item ${req.params.id} to watchlist`);
       const currentlyWatching = await storage.getCurrentlyWatchingItem(parseInt(req.params.id));
       if (!currentlyWatching) {
+        console.log(`Currently watching item ${req.params.id} not found`);
         return res.status(404).json({ message: "Currently watching item not found" });
       }
 
+      if (currentlyWatching.userId !== req.user!.id) {
+        console.log(`User ${req.user!.id} not authorized to move item ${req.params.id}`);
+        return res.status(403).json({ message: "Not authorized to move this item" });
+      }
+
       // Add to watchlist
+      console.log(`Adding ${currentlyWatching.title} to watchlist`);
       const watchlist = await storage.addToWatchlist(req.user!.id, {
         mediaId: currentlyWatching.mediaId,
         title: currentlyWatching.title,
@@ -336,8 +365,10 @@ export function registerRoutes(app: Express): Server {
       });
 
       // Remove from currently watching
+      console.log(`Removing ${currentlyWatching.title} from currently watching`);
       await storage.stopWatching(parseInt(req.params.id));
 
+      console.log(`Successfully moved ${currentlyWatching.title} to watchlist`);
       res.json({ status: "moved_to_watchlist", watchlist });
     } catch (error) {
       console.error("Error moving to watchlist:", error);

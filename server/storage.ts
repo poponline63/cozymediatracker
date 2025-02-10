@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
@@ -35,6 +35,8 @@ export interface IStorage {
   startWatching(userId: number, item: InsertCurrentlyWatching): Promise<CurrentlyWatching>;
   updateProgress(id: number, progress: number): Promise<CurrentlyWatching>;
   getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>;
+  stopWatching(id: number): Promise<void>;
+  markAsCompleted(id: number): Promise<CurrentlyWatching>;
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -54,6 +56,12 @@ export interface IStorage {
     type: string;
     posterUrl: string | null;
   }[]>;
+  getRecommendations(userId: number): Promise<{
+    mediaId: string;
+    title: string;
+    type: string;
+    posterUrl: string | null;
+  }[]>;
 
   // Watch Sessions
   getRecentWatchSessions(userId: number, mediaId?: string): Promise<{
@@ -62,8 +70,18 @@ export interface IStorage {
     duration: number;
     title: string;
   }[]>;
+  createWatchSession(userId: number, data: {
+    mediaId: string;
+    watchlistId: number;
+    startTime: Date;
+    endTime: Date;
+    duration: number;
+  }): Promise<WatchSession>;
 
   sessionStore: session.Store;
+  upsertRating(userId: number, mediaId: string, rating: number): Promise<Rating>;
+  getRatingsByMediaIds(userId: number, mediaIds: string[]): Promise<Rating[]>;
+  deleteRating(userId: number, mediaId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -167,19 +185,19 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async markAsCompleted(id: number): Promise<CurrentlyWatching> {
-    const [updated] = await db
-      .update(currentlyWatching)
-      .set({
-        isCompleted: true,
-        progress: 100,
-        updatedAt: new Date()
-      })
-      .where(eq(currentlyWatching.id, id))
-      .returning();
+  async stopWatching(id: number): Promise<void> {
+    try {
+      const result = await db.delete(currentlyWatching)
+        .where(eq(currentlyWatching.id, id))
+        .returning();
 
-    if (!updated) throw new Error("Currently watching item not found");
-    return updated;
+      if (!result.length) {
+        throw new Error("Currently watching item not found");
+      }
+    } catch (error) {
+      console.error("Error in stopWatching:", error);
+      throw error;
+    }
   }
 
   // Watchlist operations
@@ -254,7 +272,7 @@ export class DatabaseStorage implements IStorage {
     const query = db
       .select({
         id: watchSessions.id,
-        startTime: watchSessions.startTime,
+        startTime: sql<string>`to_char(${watchSessions.startTime}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
         duration: watchSessions.duration,
         title: currentlyWatching.title,
       })
@@ -268,10 +286,122 @@ export class DatabaseStorage implements IStorage {
       .limit(10);
 
     if (mediaId) {
-      query.where(eq(currentlyWatching.mediaId, mediaId));
+      return query.where(eq(currentlyWatching.mediaId, mediaId));
     }
 
     return query;
+  }
+
+  async markAsCompleted(id: number): Promise<CurrentlyWatching> {
+    const [updated] = await db
+      .update(currentlyWatching)
+      .set({
+        isCompleted: true,
+        progress: 100,
+        updatedAt: new Date()
+      })
+      .where(eq(currentlyWatching.id, id))
+      .returning();
+
+    if (!updated) throw new Error("Currently watching item not found");
+    return updated;
+  }
+
+  async createWatchSession(userId: number, data: {
+    mediaId: string;
+    watchlistId: number;
+    startTime: Date;
+    endTime: Date;
+    duration: number;
+  }): Promise<WatchSession> {
+    const [session] = await db
+      .insert(watchSessions)
+      .values({
+        userId,
+        mediaId: data.mediaId,
+        watchlistId: data.watchlistId,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        duration: data.duration,
+      })
+      .returning();
+    return session;
+  }
+
+  async getRecommendations(userId: number) {
+    // For now, return recently completed items from other users
+    return db
+      .select({
+        mediaId: currentlyWatching.mediaId,
+        title: currentlyWatching.title,
+        type: currentlyWatching.type,
+        posterUrl: currentlyWatching.posterUrl,
+      })
+      .from(currentlyWatching)
+      .where(
+        and(
+          eq(currentlyWatching.isCompleted, true),
+          sql`${currentlyWatching.userId} != ${userId}`
+        )
+      )
+      .limit(10);
+  }
+
+  async upsertRating(userId: number, mediaId: string, rating: number): Promise<Rating> {
+    const [existing] = await db
+      .select()
+      .from(ratings)
+      .where(
+        and(
+          eq(ratings.userId, userId),
+          eq(ratings.mediaId, mediaId)
+        )
+      );
+
+    if (existing) {
+      const [updated] = await db
+        .update(ratings)
+        .set({
+          rating,
+          updatedAt: new Date(),
+        })
+        .where(eq(ratings.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(ratings)
+      .values({
+        userId,
+        mediaId,
+        rating,
+      })
+      .returning();
+    return created;
+  }
+
+  async getRatingsByMediaIds(userId: number, mediaIds: string[]): Promise<Rating[]> {
+    return db
+      .select()
+      .from(ratings)
+      .where(
+        and(
+          eq(ratings.userId, userId),
+          sql`${ratings.mediaId} = ANY(${mediaIds})`
+        )
+      );
+  }
+
+  async deleteRating(userId: number, mediaId: string): Promise<void> {
+    await db
+      .delete(ratings)
+      .where(
+        and(
+          eq(ratings.userId, userId),
+          eq(ratings.mediaId, mediaId)
+        )
+      );
   }
 }
 

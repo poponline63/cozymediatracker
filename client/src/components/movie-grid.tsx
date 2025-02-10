@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Eye, User } from "lucide-react";
+import { Clock, Eye } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -42,6 +42,38 @@ export default function MovieGrid({
     queryKey: ["/api/watchlist"],
   });
 
+  // Move to watchlist mutation
+  const moveToWatchlistMutation = useMutation({
+    mutationFn: async (currentlyWatchingId: number) => {
+      const res = await apiRequest(
+        "PATCH",
+        `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`,
+        {}
+      );
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to move item to watchlist");
+      }
+      return res.json();
+    },
+    onSuccess: (_, currentlyWatchingId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      const item = items.find((item) => item.id === currentlyWatchingId.toString());
+      toast({
+        title: "Moved to watchlist",
+        description: `${item?.title} has been moved to your watchlist`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Start watching mutation
   const startWatchingMutation = useMutation({
     mutationFn: async (watchlistId: number) => {
@@ -57,38 +89,10 @@ export default function MovieGrid({
     onSuccess: (_, watchlistId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
-      const item = items.find(item => item.watchlistId === watchlistId);
+      const item = items.find((item) => item.watchlistId === watchlistId);
       toast({
         title: "Started watching",
         description: `${item?.title} has been moved to your currently watching list`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Move to watchlist mutation
-  const moveToWatchlistMutation = useMutation({
-    mutationFn: async (currentlyWatchingId: number) => {
-      const res = await apiRequest("PATCH", `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`, {});
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to move item to watchlist");
-      }
-      return res.json();
-    },
-    onSuccess: (data, currentlyWatchingId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      const item = items.find(item => item.id === currentlyWatchingId.toString());
-      toast({
-        title: "Moved to watchlist",
-        description: `${item?.title} has been moved to your watchlist`,
       });
     },
     onError: (error: Error) => {
@@ -126,7 +130,7 @@ export default function MovieGrid({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.map((item) => {
         const watchlistItem = watchlist?.find(
-          (w: Watchlist) => w.mediaId === item.mediaId
+          (w) => w.mediaId === item.mediaId
         );
 
         return (
