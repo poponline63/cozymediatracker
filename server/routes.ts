@@ -154,7 +154,12 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const watchlistItem = await storage.getWatchlistItem(parseInt(req.params.id));
+      const watchlistId = parseInt(req.params.id);
+      if (isNaN(watchlistId)) {
+        return res.status(400).json({ message: "Invalid watchlist ID" });
+      }
+
+      const watchlistItem = await storage.getWatchlistItem(watchlistId);
       if (!watchlistItem) {
         return res.status(404).json({ message: "Watchlist item not found" });
       }
@@ -168,7 +173,7 @@ export function registerRoutes(app: Express): Server {
           posterUrl: watchlistItem.posterUrl,
         });
         // Remove from watchlist after successful transition
-        await storage.removeFromWatchlist(parseInt(req.params.id));
+        await storage.removeFromWatchlist(watchlistId);
         res.json({ status: "moved_to_watching", watching });
       } else {
         res.status(400).json({ message: "Invalid status update" });
@@ -257,6 +262,7 @@ export function registerRoutes(app: Express): Server {
     res.json(sessions);
   });
 
+  // Update the watch sessions route to handle the enhanced functionality
   app.post("/api/watch-sessions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 

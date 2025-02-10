@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface WatchProgressProps {
   watchlistId: number;
@@ -33,7 +33,7 @@ export default function WatchProgress({
   const [currentEpisode, setCurrentEpisode] = useState("1");
   const { toast } = useToast();
 
-  // Fetch media details to get total seasons/episodes and duration
+  // Fetch media details to get total seasons/episodes
   const { data: details } = useQuery({
     queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
@@ -58,127 +58,161 @@ export default function WatchProgress({
       season?: string;
       episode?: string;
     }) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${id}`, {
-        status: "watching",
+      const res = await apiRequest("PATCH", `/api/currently-watching/${id}/progress`, {
         progress,
-        currentSeason: season,
-        currentEpisode: episode,
+        currentSeason: season ? parseInt(season) : undefined,
+        currentEpisode: episode ? parseInt(episode) : undefined,
       });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update progress");
+      }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Progress updated",
-        description: "Successfully updated your watch progress",
+        description: type === "series" 
+          ? `Updated to Season ${currentSeason}, Episode ${currentEpisode}`
+          : "Successfully updated your watch progress",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Failed to update progress:", error);
+      toast({
+        title: "Error updating progress",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
 
-  // Auto-update when values change
-  useEffect(() => {
-    if (type === "series") {
-      updateMutation.mutate({
-        id: watchlistId,
-        progress,
-        season: currentSeason,
-        episode: currentEpisode,
-      });
-    } else {
-      updateMutation.mutate({ id: watchlistId, progress });
-    }
-  }, [progress, currentSeason, currentEpisode]);
-
-  // For series, calculate progress based on current episode/total episodes
+  // Update progress when season/episode changes for series
   useEffect(() => {
     if (type === "series" && details?.Episodes) {
       const totalEpisodes = details.Episodes.length;
       const currentEpisodeNumber = parseInt(currentEpisode);
-      const newProgress = Math.round((currentEpisodeNumber / totalEpisodes) * 100);
+      const totalSeasons = parseInt(details.totalSeasons || "1");
+      const currentSeasonNumber = parseInt(currentSeason);
+
+      // Calculate overall progress based on current episode and total episodes
+      const seasonProgress = ((currentSeasonNumber - 1) / totalSeasons) * 100;
+      const episodeProgress = (currentEpisodeNumber / totalEpisodes) * (100 / totalSeasons);
+      const newProgress = Math.min(Math.round(seasonProgress + episodeProgress), 100);
+
       setProgress(newProgress);
+
+      updateMutation.mutate({
+        id: watchlistId,
+        progress: newProgress,
+        season: currentSeason,
+        episode: currentEpisode,
+      });
     }
-  }, [currentEpisode, details?.Episodes, type]);
+  }, [currentSeason, currentEpisode, details?.Episodes, details?.totalSeasons, type]);
 
-  // Extract runtime from details
-  const runtime = details?.Runtime?.split(' ')?.[0] || null;
-  const totalDuration = runtime ? parseInt(runtime) : undefined;
-
+  // Handle progress updates for movies
   const handleProgressUpdate = (newProgress: number) => {
     setProgress(newProgress);
+    if (type !== "series") {
+      updateMutation.mutate({
+        id: watchlistId,
+        progress: newProgress,
+      });
+    }
   };
 
   if (type === "series") {
     return (
-      <div className="space-y-2 mt-2">
-        <div className="flex gap-2">
-          <Select value={currentSeason} onValueChange={setCurrentSeason}>
-            <SelectTrigger className="w-32">
-              <SelectValue>Season {currentSeason}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from(
-                { length: parseInt(details?.totalSeasons || "1") },
-                (_, i) => (
-                  <SelectItem key={i + 1} value={(i + 1).toString()}>
-                    Season {i + 1}
-                  </SelectItem>
-                )
-              )}
-            </SelectContent>
-          </Select>
-          <Select value={currentEpisode} onValueChange={setCurrentEpisode}>
-            <SelectTrigger className="w-32">
-              <SelectValue>Episode {currentEpisode}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {details?.Episodes?.map((episode: any) => (
-                <SelectItem key={episode.Episode} value={episode.Episode.toString()}>
-                  Episode {episode.Episode}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Progress value={progress} className="h-2" />
-        <WatchTimer
-          mediaId={mediaId}
-          watchlistId={watchlistId}
-          totalDuration={totalDuration}
-          onProgressUpdate={handleProgressUpdate}
-        />
-      </div>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle className="text-lg">Track Your Progress</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Current Season</label>
+              <Select value={currentSeason} onValueChange={setCurrentSeason}>
+                <SelectTrigger>
+                  <SelectValue>Season {currentSeason}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(
+                    { length: parseInt(details?.totalSeasons || "1") },
+                    (_, i) => (
+                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                        Season {i + 1}
+                      </SelectItem>
+                    )
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Current Episode</label>
+              <Select value={currentEpisode} onValueChange={setCurrentEpisode}>
+                <SelectTrigger>
+                  <SelectValue>Episode {currentEpisode}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {details?.Episodes?.map((episode: any) => (
+                    <SelectItem key={episode.Episode} value={episode.Episode.toString()}>
+                      Episode {episode.Episode} - {episode.Title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Overall Progress</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+          <WatchTimer
+            mediaId={mediaId}
+            watchlistId={watchlistId}
+            totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
+            onProgressUpdate={handleProgressUpdate}
+          />
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-2 mt-2">
-      <div className="flex gap-2">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          value={progress}
-          onChange={(e) => setProgress(parseInt(e.target.value) || 0)}
-          className="w-20"
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="text-lg">Track Your Progress</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-4 items-center">
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Progress</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+          <Button 
+            variant={progress === 100 ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleProgressUpdate(progress === 100 ? 0 : 100)}
+          >
+            <Check className={`h-4 w-4 mr-2 ${progress === 100 ? "text-primary-foreground" : ""}`} />
+            {progress === 100 ? "Completed" : "Mark Complete"}
+          </Button>
+        </div>
+        <WatchTimer
+          mediaId={mediaId}
+          watchlistId={watchlistId}
+          totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
+          onProgressUpdate={handleProgressUpdate}
         />
-        <span className="text-muted-foreground self-center">%</span>
-        <Button 
-          variant={progress === 100 ? "default" : "outline"}
-          size="sm"
-          onClick={() => setProgress(progress === 100 ? 0 : 100)}
-          className="ml-auto"
-        >
-          <Check className={`h-4 w-4 mr-2 ${progress === 100 ? "text-primary-foreground" : ""}`} />
-          {progress === 100 ? "Completed" : "Mark Complete"}
-        </Button>
-      </div>
-      <Progress value={progress} className="h-2" />
-      <WatchTimer
-        mediaId={mediaId}
-        watchlistId={watchlistId}
-        totalDuration={totalDuration}
-        onProgressUpdate={handleProgressUpdate}
-      />
-    </div>
+      </CardContent>
+    </Card>
   );
 }

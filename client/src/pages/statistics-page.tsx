@@ -23,15 +23,12 @@ import {
 
 const COLORS = ["#22c55e", "#3b82f6", "#ec4899", "#f59e0b", "#6366f1"];
 
-// Assuming type definitions for Statistics and WatchSession exist elsewhere
-// in the project.  These would need to be defined or imported.
 interface Statistics {
-  totalWatchtime?: number;
-  totalItems?: number;
-  averageDailyWatchtime?: number;
-  averageRating?: number;
-  ratedItems?: number;
-  watchTimeByDay?: { day: string; hours: number }[];
+  totalWatchtime: number;
+  totalItems: number;
+  averageDailyWatchtime: number;
+  watchTimeByDay: { day: string; hours: number }[];
+  watchTimeByType?: { type: string; hours: number }[];
 }
 
 interface WatchSession {
@@ -40,7 +37,6 @@ interface WatchSession {
   duration: number;
   startTime: string;
 }
-
 
 export default function StatisticsPage() {
   const { data: stats, isLoading } = useQuery<Statistics>({
@@ -62,10 +58,14 @@ export default function StatisticsPage() {
   const totalWatchtime = stats?.totalWatchtime || 0;
   const totalItems = stats?.totalItems || 0;
   const averageDailyWatchtime = Math.round(stats?.averageDailyWatchtime || 0);
-  const averageRating = stats?.averageRating || 0; //Added for better error handling
-  const ratedItems = stats?.ratedItems || 0; //Added for better error handling
   const watchTimeByDay = stats?.watchTimeByDay || [];
+  const watchTimeByType = stats?.watchTimeByType || [];
 
+  const formatWatchTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
 
   return (
     <Layout>
@@ -84,7 +84,7 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {Math.floor(totalWatchtime / 60)}h {totalWatchtime % 60}m
+                {formatWatchTime(totalWatchtime)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Across {totalItems} items
@@ -98,7 +98,7 @@ export default function StatisticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {averageDailyWatchtime}m
+                {formatWatchTime(averageDailyWatchtime)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Last 7 days
@@ -107,16 +107,31 @@ export default function StatisticsPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+              <CardTitle className="text-sm font-medium">Watch Time by Type</CardTitle>
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {averageRating.toFixed(1)} / 5.0
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={watchTimeByType}
+                      dataKey="hours"
+                      nameKey="type"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={40}
+                      paddingAngle={2}
+                    >
+                      {watchTimeByType.map((entry, index) => (
+                        <Cell key={entry.type} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatWatchTime(Number(value))} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-              <p className="text-xs text-muted-foreground">
-                From {ratedItems} ratings
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -134,7 +149,7 @@ export default function StatisticsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={(value) => formatWatchTime(Number(value))} />
                   <Bar dataKey="hours" fill="#3b82f6" />
                 </BarChart>
               </ResponsiveContainer>
@@ -150,7 +165,7 @@ export default function StatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {watchSessions?.map((session: any) => (
+              {watchSessions?.map((session) => (
                 <div
                   key={session.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0"
@@ -158,7 +173,7 @@ export default function StatisticsPage() {
                   <div>
                     <p className="font-medium">{session.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      Watched for {Math.floor(session.duration / 60)}h {session.duration % 60}m
+                      {formatWatchTime(session.duration)}
                     </p>
                   </div>
                   <p className="text-sm text-muted-foreground">

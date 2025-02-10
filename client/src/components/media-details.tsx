@@ -15,12 +15,15 @@ import {
 import { Loader2, Star } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import WatchProgress from "./watch-progress";
 
 interface MediaDetailsProps {
   mediaId: string;
   isOpen: boolean;
   onClose: () => void;
   isProfileView?: boolean;
+  watchlistId?: number;
 }
 
 export default function MediaDetails({
@@ -28,6 +31,7 @@ export default function MediaDetails({
   isOpen,
   onClose,
   isProfileView = false,
+  watchlistId,
 }: MediaDetailsProps) {
   const [currentSeason, setCurrentSeason] = useState("1");
 
@@ -44,6 +48,17 @@ export default function MediaDetails({
     staleTime: 1000 * 60 * 60, // Consider data fresh for 1 hour
   });
 
+  // Query for currently watching status
+  const { data: watching } = useQuery({
+    queryKey: ["/api/currently-watching", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/currently-watching/${mediaId}`);
+      if (!res.ok) throw new Error('Failed to fetch watching status');
+      return res.json();
+    },
+    enabled: isOpen && !!mediaId,
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl h-[80vh]">
@@ -53,7 +68,7 @@ export default function MediaDetails({
           </div>
         ) : details ? (
           <ScrollArea className="h-full pr-4">
-            <DialogHeader>
+            <DialogHeader className="space-y-4">
               <DialogTitle className="text-2xl font-bold">
                 {details.Title}
               </DialogTitle>
@@ -71,9 +86,22 @@ export default function MediaDetails({
                   </>
                 )}
               </div>
+
+              {/* Progress Tracking Section - Moved up */}
+              {watching?.watchingItem && (
+                <>
+                  <WatchProgress
+                    watchlistId={watching.watchingItem.id}
+                    mediaId={mediaId}
+                    currentProgress={watching.watchingItem.progress}
+                    type={details.Type}
+                  />
+                  <Separator className="my-4" />
+                </>
+              )}
             </DialogHeader>
 
-            <div className="mt-6 space-y-6">
+            <div className="space-y-6">
               <div className="flex gap-6">
                 <img
                   src={details.Poster}
@@ -112,43 +140,43 @@ export default function MediaDetails({
                       </div>
                     )}
                   </div>
-
-                  {/* Episodes List Section */}
-                  {details.Type === "series" && details.Episodes && (
-                    <div className="space-y-4 mt-6">
-                      <h3 className="text-lg font-semibold">Episodes</h3>
-                      <div className="space-y-3">
-                        {details.Episodes.map((episode: any) => (
-                          <div
-                            key={episode.imdbID}
-                            className="p-4 rounded-lg border bg-card/50"
-                          >
-                            <div className="flex justify-between items-center gap-4">
-                              <div>
-                                <h4 className="font-medium">
-                                  <span className="text-lg">
-                                    {episode.Episode}.{" "}
-                                  </span>
-                                  {episode.Title}
-                                </h4>
-                                {episode.imdbRating && (
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                    <span>{episode.imdbRating}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {episode.Released}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {/* Episodes List Section */}
+              {details.Type === "series" && details.Episodes && (
+                <div className="space-y-4 mt-6">
+                  <h3 className="text-lg font-semibold">Episodes</h3>
+                  <div className="space-y-3">
+                    {details.Episodes.map((episode: any) => (
+                      <div
+                        key={episode.imdbID}
+                        className="p-4 rounded-lg border bg-card/50"
+                      >
+                        <div className="flex justify-between items-center gap-4">
+                          <div>
+                            <h4 className="font-medium">
+                              <span className="text-lg">
+                                {episode.Episode}.{" "}
+                              </span>
+                              {episode.Title}
+                            </h4>
+                            {episode.imdbRating && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span>{episode.imdbRating}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {episode.Released}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </ScrollArea>
         ) : null}

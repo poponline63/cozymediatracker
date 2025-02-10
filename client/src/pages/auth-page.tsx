@@ -18,7 +18,7 @@ import { SiThemoviedatabase } from "react-icons/si";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  
+
   const loginForm = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
     defaultValues: {
@@ -32,7 +32,7 @@ export default function AuthPage() {
     defaultValues: {
       username: "",
       password: "",
-      avatarUrl: null,
+      avatarUrl: "",  // Changed from null to empty string to match Input type
     },
   });
 
@@ -49,7 +49,7 @@ export default function AuthPage() {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <Form {...loginForm}>
                 <form
@@ -94,7 +94,7 @@ export default function AuthPage() {
                 </form>
               </Form>
             </TabsContent>
-            
+
             <TabsContent value="register">
               <Form {...registerForm}>
                 <form
@@ -132,11 +132,11 @@ export default function AuthPage() {
                   <FormField
                     control={registerForm.control}
                     name="avatarUrl"
-                    render={({ field }) => (
+                    render={({ field: { value, ...field } }) => (
                       <FormItem>
                         <FormLabel>Avatar URL</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -155,7 +155,7 @@ export default function AuthPage() {
           </Tabs>
         </div>
       </div>
-      
+
       <div className="flex-1 bg-gradient-to-br from-primary/20 to-primary/10 p-8 hidden lg:flex items-center justify-center">
         <div className="max-w-md text-center">
           <SiThemoviedatabase className="w-16 h-16 mx-auto mb-6 text-primary" />

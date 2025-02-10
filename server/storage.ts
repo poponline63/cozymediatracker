@@ -1,12 +1,12 @@
-import { 
-  users, 
-  watchlist, 
+import {
+  users,
+  watchlist,
   currentlyWatching,
   watchSessions,
   ratings,
-  type User, 
-  type InsertUser, 
-  type Watchlist, 
+  type User,
+  type InsertUser,
+  type Watchlist,
   type InsertWatchlist,
   type CurrentlyWatching,
   type InsertCurrentlyWatching,
@@ -35,9 +35,9 @@ export interface IStorage {
   updateProgress(id: number, progress: number, seasonEpisodeInfo?: { currentSeason?: number, currentEpisode?: number }): Promise<CurrentlyWatching>;
   markAsCompleted(id: number): Promise<CurrentlyWatching>;
   stopWatching(id: number): Promise<void>;
-  getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>; 
-  getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>; 
-  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>; 
+  getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>;
+  getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>;
+  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>;
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(currentlyWatching).where(eq(currentlyWatching.id, id));
   }
 
-  async getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined> { 
+  async getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined> {
     const [item] = await db
       .select()
       .from(currentlyWatching)
@@ -285,17 +285,27 @@ export class DatabaseStorage implements IStorage {
     const watchTimeByDay = await db
       .select({
         day: sql<string>`to_char(start_time, 'Day')`,
-        hours: sql<number>`sum(duration) / 60.0`,
+        hours: sql<number>`sum(duration)`,
       })
       .from(watchSessions)
       .where(eq(watchSessions.userId, userId))
       .groupBy(sql`to_char(start_time, 'Day')`)
       .orderBy(sql`min(extract(dow from start_time))`);
 
+    const watchTimeByType = await db
+      .select({
+        type: currentlyWatching.type,
+        hours: sql<number>`sum(total_watchtime)`,
+      })
+      .from(currentlyWatching)
+      .where(eq(currentlyWatching.userId, userId))
+      .groupBy(currentlyWatching.type);
+
     return {
       ...watchingStats,
       ...weeklyStats,
       watchTimeByDay,
+      watchTimeByType,
     };
   }
 
