@@ -86,20 +86,21 @@ export default function MediaCard({
     },
   });
 
-  const moveToWatchingMutation = useMutation({
+  const startWatchingMutation = useMutation({
     mutationFn: async (watchlistId: number) => {
       const res = await apiRequest("PATCH", `/api/watchlist/${watchlistId}`, {
         status: "watching",
       });
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || "Failed to move to currently watching");
+        throw new Error(error.message || "Failed to start watching");
       }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recommendations"] });
       toast({
         title: "Started watching",
         description: `${title} has been moved to your currently watching list`,
@@ -174,46 +175,50 @@ export default function MediaCard({
                   </Link>
                 </Button>
               ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addMutation.mutate({
-                        mediaId: id,
-                        title,
-                        type,
-                        posterUrl: posterUrl || null,
-                        status: "plan_to_watch",
-                      });
-                    }}
-                    disabled={addMutation.isPending}
-                  >
-                    {addMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4 mr-2" />
-                    )}
-                    Add to Watchlist
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addMutation.mutate({
+                      mediaId: id,
+                      title,
+                      type,
+                      posterUrl: posterUrl || null,
+                      status: "plan_to_watch",
+                    });
+                  }}
+                  disabled={addMutation.isPending}
+                >
+                  {addMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Add to Watchlist
+                </Button>
               )}
             </div>
           )}
 
-          {status === "plan_to_watch" && watchlistId && !showAddToList && (
+          {!showAddToList && status === "plan_to_watch" && watchlistId && (
             <Button
               variant="secondary"
               size="sm"
               className="w-full mt-2"
-              asChild
+              onClick={(e) => {
+                e.stopPropagation();
+                startWatchingMutation.mutate(watchlistId);
+              }}
+              disabled={startWatchingMutation.isPending}
             >
-              <Link href="/profile" className="flex items-center justify-center">
-                <User className="h-4 w-4 mr-2" />
-                View in Profile
-              </Link>
+              {startWatchingMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Eye className="h-4 w-4 mr-2" />
+              )}
+              Start Watching
             </Button>
           )}
         </div>

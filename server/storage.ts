@@ -188,7 +188,7 @@ export class DatabaseStorage implements IStorage {
 
   async getRecommendations(userId: number): Promise<any[]> {
     try {
-      // Get user's existing media IDs to exclude
+      // Get all media IDs to exclude (both from currently watching and watchlist)
       const existingMediaIds = await db
         .select({ mediaId: currentlyWatching.mediaId })
         .from(currentlyWatching)
@@ -199,11 +199,34 @@ export class DatabaseStorage implements IStorage {
         .from(watchlist)
         .where(eq(watchlist.userId, userId));
 
-      const excludeMediaIds = [...existingMediaIds, ...watchlistMediaIds].map(
-        (item) => item.mediaId
-      );
+      const excludeMediaIds = [
+        ...existingMediaIds.map(item => item.mediaId),
+        ...watchlistMediaIds.map(item => item.mediaId)
+      ];
+
+      // If no media to exclude, just return popular completed items
+      if (excludeMediaIds.length === 0) {
+        return db
+          .select({
+            mediaId: currentlyWatching.mediaId,
+            title: currentlyWatching.title,
+            type: currentlyWatching.type,
+            posterUrl: currentlyWatching.posterUrl,
+          })
+          .from(currentlyWatching)
+          .where(eq(currentlyWatching.isCompleted, true))
+          .groupBy(
+            currentlyWatching.mediaId,
+            currentlyWatching.title,
+            currentlyWatching.type,
+            currentlyWatching.posterUrl
+          )
+          .orderBy(sql`count(*) desc`)
+          .limit(10);
+      }
 
       // Get recommendations based on other users who completed similar media
+      // Exclude any media that's in user's watchlist or currently watching
       const recommendations = await db
         .select({
           mediaId: currentlyWatching.mediaId,
@@ -213,8 +236,12 @@ export class DatabaseStorage implements IStorage {
         })
         .from(currentlyWatching)
         .where(
-          sql`${currentlyWatching.mediaId} NOT IN (${sql`${excludeMediaIds.join(', ')}`})`
+          and(
+            sql`${currentlyWatching.mediaId} NOT IN (${sql`${excludeMediaIds.map(() => '?').join(', ')}`})`,
+            eq(currentlyWatching.isCompleted, true)
+          )
         )
+        .prepare(excludeMediaIds)
         .groupBy(
           currentlyWatching.mediaId,
           currentlyWatching.title,

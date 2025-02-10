@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Eye } from "lucide-react";
+import { Clock, Eye, User } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -150,7 +150,7 @@ export default function MovieGrid({
               />
             </div>
 
-            {/* Button to start watching from watchlist */}
+            {/* Show "Start Watching" button in profile/watchlist view */}
             {watchlistItem && item.status === "plan_to_watch" && (
               <Button
                 className="w-full"
@@ -163,6 +163,7 @@ export default function MovieGrid({
                 Start Watching
               </Button>
             )}
+            {/* Show "Move to Watchlist" button for currently watching items */}
             {item.status === "watching" && (
               <Button
                 className="w-full"
