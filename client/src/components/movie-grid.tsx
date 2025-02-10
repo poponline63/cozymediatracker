@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -42,36 +42,7 @@ export default function MovieGrid({
     queryKey: ["/api/watchlist"],
   });
 
-  const startWatchingMutation = useMutation({
-    mutationFn: async (watchlistId: number) => {
-      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistId}`, {
-        status: "watching"
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message);
-      }
-      return res.json();
-    },
-    onSuccess: (data, watchlistId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
-      const item = items.find(item => item.id === watchlistId.toString());
-      toast({
-        title: "Started watching",
-        description: `${item?.title} has been moved to your currently watching list`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Similar update for moveToWatchlistMutation
+  // Move to watchlist mutation
   const moveToWatchlistMutation = useMutation({
     mutationFn: async (currentlyWatchingId: number) => {
       const res = await apiRequest("PATCH", `/api/currently-watching/${currentlyWatchingId}/move-to-watchlist`, {});
@@ -148,18 +119,6 @@ export default function MovieGrid({
                 rating={item.rating}
               />
             </div>
-
-            {item.status === "plan_to_watch" && (
-              <Button
-                className="w-full"
-                size="sm"
-                onClick={() => startWatchingMutation.mutate(Number(item.id))}
-                disabled={startWatchingMutation.isPending}
-              >
-                <Play className="w-4 h-4 mr-2" />
-                Start Watching
-              </Button>
-            )}
 
             {item.status === "watching" && (
               <Button

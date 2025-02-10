@@ -2,10 +2,11 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, X, Eye, Clock, Star, Loader2 } from "lucide-react";
+import { Plus, X, Eye, Star, Loader2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type InsertWatchlist } from "@shared/schema";
 import WatchProgress from "./watch-progress";
+import { Link } from "wouter";
 
 interface MediaCardProps {
   id: string;
@@ -49,7 +50,7 @@ export default function MediaCard({
       queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
       toast({
         title: "Added to watchlist",
-        description: `${title} has been added to your watchlist`,
+        description: `${title} has been added to your watchlist. View it in your profile.`,
       });
     },
     onError: (error: Error) => {
@@ -85,31 +86,6 @@ export default function MediaCard({
     },
   });
 
-  const rateMutation = useMutation({
-    mutationFn: async ({ mediaId, rating }: { mediaId: string; rating: number }) => {
-      const res = await apiRequest("POST", "/api/ratings", { mediaId, rating });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to rate media");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ratings"] });
-      toast({
-        title: "Rating updated",
-        description: `You've rated ${title} ${rating} stars`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   return (
     <Card className="overflow-hidden group relative">
       <CardContent className="p-0">
@@ -132,76 +108,94 @@ export default function MediaCard({
           )}
 
           {/* Rating Stars */}
-          <div className="flex items-center gap-1 mt-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Button
-                key={star}
-                variant="ghost"
-                size="sm"
-                className="p-0 h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  rateMutation.mutate({ mediaId: id, rating: star });
-                }}
-                disabled={rateMutation.isPending}
-              >
-                <Star
-                  className={`h-4 w-4 ${
-                    (rating || 0) >= star ? "fill-primary text-primary" : "text-muted-foreground"
-                  }`}
-                />
-              </Button>
-            ))}
-          </div>
+          {!showRemove && (
+            <div className="flex items-center gap-1 mt-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Button
+                  key={star}
+                  variant="ghost"
+                  size="sm"
+                  className="p-0 h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    //rateMutation.mutate({ mediaId: id, rating: star });
+                  }}
+                  disabled={false} //rateMutation.isPending}
+                >
+                  <Star
+                    className={`h-4 w-4 ${
+                      (rating || 0) >= star ? "fill-primary text-primary" : "text-muted-foreground"
+                    }`}
+                  />
+                </Button>
+              ))}
+            </div>
+          )}
 
           {showAddToList && (
             <div className="space-y-2 mt-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addMutation.mutate({
-                    mediaId: id,
-                    title,
-                    type,
-                    posterUrl,
-                    status: "plan_to_watch",
-                  });
-                }}
-                disabled={addMutation.isPending || watchlistId !== undefined}
-              >
-                {addMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
-                {watchlistId ? 'In Watchlist' : 'Add to Watchlist'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addMutation.mutate({
-                    mediaId: id,
-                    title,
-                    type,
-                    posterUrl,
-                    status: "watching",
-                  });
-                }}
-                disabled={addMutation.isPending || watchlistId !== undefined}
-              >
-                {addMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Eye className="h-4 w-4 mr-2" />
-                )}
-                Currently Watching
-              </Button>
+              {watchlistId ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  asChild
+                >
+                  <Link href="/profile" className="flex items-center justify-center">
+                    <User className="h-4 w-4 mr-2" />
+                    View in Profile
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addMutation.mutate({
+                        mediaId: id,
+                        title,
+                        type,
+                        posterUrl,
+                        status: "plan_to_watch",
+                      });
+                    }}
+                    disabled={addMutation.isPending}
+                  >
+                    {addMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    Add to Watchlist
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addMutation.mutate({
+                        mediaId: id,
+                        title,
+                        type,
+                        posterUrl,
+                        status: "watching",
+                      });
+                    }}
+                    disabled={addMutation.isPending}
+                  >
+                    {addMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eye className="h-4 w-4 mr-2" />
+                    )}
+                    Currently Watching
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>

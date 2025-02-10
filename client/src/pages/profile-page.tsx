@@ -59,14 +59,16 @@ export default function ProfilePage() {
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
     ...item,
     id: item.id.toString(), // Convert id to string
-    status: "plan_to_watch" // Explicitly set status
+    status: "plan_to_watch", // Explicitly set status
+    posterUrl: item.posterUrl || undefined // Convert null to undefined
   })) || [];
 
   // Transform currently watching items to match MovieGridItem type
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
     ...item,
     id: item.id.toString(), // Convert id to string
-    watchlistId: undefined // Explicitly set as undefined since it's from currently watching
+    watchlistId: undefined, // Explicitly set as undefined since it's from currently watching
+    posterUrl: item.posterUrl || undefined // Convert null to undefined
   })) || [];
 
   // Statistics queries
