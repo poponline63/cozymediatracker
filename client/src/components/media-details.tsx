@@ -38,14 +38,13 @@ export default function MediaDetails({
   isProfileView = false,
   watchlistId,
 }: MediaDetailsProps) {
-  const [currentSeason, setCurrentSeason] = useState("1");
   const [showHistory, setShowHistory] = useState(false);
 
   // Query for media details
   const { data: details, isLoading, isError: detailsError } = useQuery({
-    queryKey: ["/api/media", mediaId, currentSeason],
+    queryKey: ["/api/media", mediaId],
     queryFn: async () => {
-      const res = await fetch(`/api/media/${mediaId}?season=${currentSeason}`);
+      const res = await fetch(`/api/media/${mediaId}`);
       if (!res.ok) {
         throw new Error('Failed to fetch media details');
       }
@@ -143,7 +142,7 @@ export default function MediaDetails({
                 renderAuthenticationError()
               ) : (
                 <>
-                  {watching?.watchingItem && details.Type === "series" && (
+                  {watching?.watchingItem && (
                     <div className="mt-4">
                       <WatchProgress
                         watchlistId={watching.watchingItem.id}
@@ -153,105 +152,90 @@ export default function MediaDetails({
                       />
                     </div>
                   )}
-                  {watching?.watchingItem && (
-                    <>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-semibold flex items-center gap-2">
-                            <Clock className="h-5 w-5" />
-                            Watch Sessions
-                          </h3>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowHistory(!showHistory)}
-                          >
-                            <History className="h-4 w-4 mr-2" />
-                            {showHistory ? "Hide History" : "Show History"}
-                          </Button>
-                        </div>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-lg">Current Session</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <WatchTimer
-                              mediaId={mediaId}
-                              watchlistId={watching.watchingItem.id}
-                              totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
-                              onProgressUpdate={(progress) => {
-                                // Progress update will be handled by WatchProgress component
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
-                        {showHistory && (
-                          <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                              <CardTitle className="text-lg">Watch History</CardTitle>
-                              {sessions && !sessionsLoading && (
-                                <div className="text-sm text-muted-foreground">
-                                  Total: {formatDuration(sessions.reduce((total, session) => total + session.duration, 0))}
-                                </div>
-                              )}
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                              {sessionsLoading ? (
-                                <div className="flex justify-center py-4">
-                                  <Loader2 className="h-6 w-6 animate-spin" />
-                                </div>
-                              ) : sessionsError ? (
-                                <div className="text-center text-muted-foreground py-4">
-                                  Failed to load watch history
-                                </div>
-                              ) : sessions && sessions.length > 0 ? (
-                                sessions.map((session) => (
-                                  <div
-                                    key={session.id}
-                                    className="flex flex-col gap-2 p-3 rounded-lg border bg-card/50"
-                                  >
-                                    <div className="flex justify-between items-start">
-                                      <div className="space-y-1">
-                                        <div className="font-medium flex items-center gap-2">
-                                          <Calendar className="h-4 w-4" />
-                                          {format(new Date(session.startTime), 'MMM d, yyyy')}
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                          Started at {format(new Date(session.startTime), 'h:mm a')}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                        <span className="font-medium">
-                                          {formatDuration(session.duration)}
-                                        </span>
-                                      </div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Watch Sessions
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowHistory(!showHistory)}
+                      >
+                        <History className="h-4 w-4 mr-2" />
+                        {showHistory ? "Hide History" : "Show History"}
+                      </Button>
+                    </div>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Current Session</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <WatchTimer
+                          mediaId={mediaId}
+                          watchlistId={watching.watchingItem.id}
+                          totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
+                          onProgressUpdate={(progress) => {
+                            // Progress update will be handled by WatchProgress component
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
+                    {showHistory && (
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-lg">Watch History</CardTitle>
+                          {sessions && !sessionsLoading && (
+                            <div className="text-sm text-muted-foreground">
+                              Total: {formatDuration(sessions.reduce((total, session) => total + session.duration, 0))}
+                            </div>
+                          )}
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {sessionsLoading ? (
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                          ) : sessionsError ? (
+                            <div className="text-center text-muted-foreground py-4">
+                              Failed to load watch history
+                            </div>
+                          ) : sessions && sessions.length > 0 ? (
+                            sessions.map((session) => (
+                              <div
+                                key={session.id}
+                                className="flex flex-col gap-2 p-3 rounded-lg border bg-card/50"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-1">
+                                    <div className="font-medium flex items-center gap-2">
+                                      <Calendar className="h-4 w-4" />
+                                      {format(new Date(session.startTime), 'MMM d, yyyy')}
                                     </div>
+                                    <p className="text-sm text-muted-foreground">
+                                      Started at {format(new Date(session.startTime), 'h:mm a')}
+                                    </p>
                                   </div>
-                                ))
-                              ) : (
-                                <div className="text-center text-muted-foreground py-4">
-                                  No watch history available
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium">
+                                      {formatDuration(session.duration)}
+                                    </span>
+                                  </div>
                                 </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        )}
-                      </div>
-                      <Separator className="my-4" />
-                    </>
-                  )}
-                  {watching?.watchingItem && details.Type !== "series" && (
-                    <>
-                      <WatchProgress
-                        watchlistId={watching.watchingItem.id}
-                        mediaId={mediaId}
-                        currentProgress={watching.watchingItem.progress}
-                        type={details.Type}
-                      />
-                      <Separator className="my-4" />
-                    </>
-                  )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center text-muted-foreground py-4">
+                              No watch history available
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                  <Separator className="my-4" />
                 </>
               )}
             </DialogHeader>

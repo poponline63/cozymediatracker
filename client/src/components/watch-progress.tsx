@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Check, Loader2, Clock } from "lucide-react";
-import WatchTimer from "./watch-timer";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -33,14 +32,10 @@ export default function WatchProgress({
     queryKey: ["/api/media", mediaId],
     queryFn: async () => {
       const res = await fetch(`/api/media/${mediaId}`);
-      if (res.status === 401) {
-        throw new Error('Authentication required');
-      }
       if (!res.ok) throw new Error('Failed to fetch media details');
       return res.json();
     },
-    gcTime: 0,
-    staleTime: 0
+    enabled: !!mediaId,
   });
 
   // Update time inputs when progress changes
@@ -75,12 +70,12 @@ export default function WatchProgress({
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Progress updated",
-        description: "Successfully updated your watch progress",
+        description: "Your watch progress has been updated successfully",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error updating progress",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -98,12 +93,36 @@ export default function WatchProgress({
       return;
     }
 
-    const totalSeconds = (parseInt(hours || "0") * 3600) + (parseInt(minutes || "0") * 60) + parseInt(seconds || "0");
+    const inputHours = parseInt(hours || "0");
+    const inputMinutes = parseInt(minutes || "0");
+    const inputSeconds = parseInt(seconds || "0");
+
+    // Validate input values
+    if (inputMinutes >= 60 || inputSeconds >= 60) {
+      toast({
+        title: "Invalid time format",
+        description: "Minutes and seconds must be less than 60",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate negative values
+    if (inputHours < 0 || inputMinutes < 0 || inputSeconds < 0) {
+      toast({
+        title: "Invalid time",
+        description: "Time values cannot be negative",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalSeconds = (inputHours * 3600) + (inputMinutes * 60) + inputSeconds;
     const totalDuration = parseInt(details.Runtime) * 60; // Runtime is in minutes
 
     if (totalSeconds > totalDuration) {
       toast({
-        title: "Warning",
+        title: "Invalid time",
         description: "Entered time exceeds media duration",
         variant: "destructive",
       });
@@ -114,7 +133,6 @@ export default function WatchProgress({
     handleProgressUpdate(newProgress);
   };
 
-  // Handle progress updates
   const handleProgressUpdate = (newProgress: number) => {
     if (newProgress === progress) return;
 
@@ -146,7 +164,7 @@ export default function WatchProgress({
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            Current Time Position
+            Time Position
           </label>
           <div className="flex gap-2">
             <div className="flex-1 space-y-1">
@@ -194,11 +212,6 @@ export default function WatchProgress({
               )}
             </Button>
           </div>
-          {details?.Runtime && (
-            <p className="text-xs text-muted-foreground">
-              Total duration: {details.Runtime} minutes
-            </p>
-          )}
         </div>
 
         <div className="flex gap-4 items-center">
@@ -223,12 +236,6 @@ export default function WatchProgress({
             {progress === 100 ? "Completed" : "Mark Complete"}
           </Button>
         </div>
-        <WatchTimer
-          mediaId={mediaId}
-          watchlistId={watchlistId}
-          totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
-          onProgressUpdate={handleProgressUpdate}
-        />
       </CardContent>
     </Card>
   );
