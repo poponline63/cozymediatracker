@@ -213,11 +213,16 @@ export class DatabaseStorage implements IStorage {
       .from(currentlyWatching)
       .where(
         and(
-          sql`${currentlyWatching.mediaId} NOT IN ${excludeMediaIds}`,
+          sql`${currentlyWatching.mediaId} NOT IN (${sql.join(excludeMediaIds)})`,
           eq(currentlyWatching.isCompleted, true)
         )
       )
-      .groupBy(sql`${currentlyWatching.mediaId}, ${currentlyWatching.title}, ${currentlyWatching.type}, ${currentlyWatching.posterUrl}`)
+      .groupBy(
+        currentlyWatching.mediaId,
+        currentlyWatching.title,
+        currentlyWatching.type,
+        currentlyWatching.posterUrl
+      )
       .orderBy(sql`count(*) desc`)
       .limit(10);
 

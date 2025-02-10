@@ -78,17 +78,21 @@ export function registerRoutes(app: Express): Server {
 
     const { progress, currentSeason, currentEpisode } = req.body;
     if (typeof progress !== "number" || progress < 0 || progress > 100) {
+      console.log(`Invalid progress value received: ${progress}`);
       return res.status(400).json({ message: "Invalid progress value" });
     }
 
     try {
+      console.log(`Updating progress for ID ${req.params.id} to ${progress}%`);
       const item = await storage.updateProgress(
         parseInt(req.params.id),
         progress,
         { currentSeason, currentEpisode }
       );
+      console.log(`Progress updated successfully for ${item.title}`);
       res.json(item);
     } catch (error) {
+      console.error("Error updating progress:", error);
       res.status(404).json({ message: "Currently watching item not found" });
     }
   });

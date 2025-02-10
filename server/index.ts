@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -37,28 +38,42 @@ app.use((req, res, next) => {
   next();
 });
 
+let serverReady = false;
+
 (async () => {
-  // Set up authentication before registering routes
-  setupAuth(app);
+  try {
+    // Set up authentication before registering routes
+    setupAuth(app);
 
-  const server = registerRoutes(app);
+    const server = registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      log(`Error: ${message}`);
+      res.status(status).json({ message });
+    });
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    const port = Number(process.env.PORT) || 5000;
+    await new Promise<void>((resolve) => {
+      server.listen(port, "0.0.0.0", () => {
+        serverReady = true;
+        log(`Server is running and ready on port ${port}`);
+        resolve();
+      });
+    });
+  } catch (error) {
+    log(`Failed to start server: ${error}`);
+    process.exit(1);
   }
-
-  const PORT = 5000;
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
 })();
+
+// Export serverReady flag for testing
+export { serverReady };

@@ -55,6 +55,71 @@ export default function WatchProgress({
     }
   }, [progress, details?.Runtime]);
 
+  const validateTimeInput = (value: string, field: 'hours' | 'minutes' | 'seconds'): boolean => {
+    const num = parseInt(value);
+
+    // Check for negative values
+    if (num < 0) {
+      toast({
+        title: "Invalid input",
+        description: "Time values cannot be negative",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check minutes and seconds range
+    if ((field === 'minutes' || field === 'seconds') && num >= 60) {
+      toast({
+        title: "Invalid input",
+        description: `${field} must be less than 60`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleTimeInput = (value: string, field: 'hours' | 'minutes' | 'seconds') => {
+    // Allow empty string for backspace/delete
+    if (value === '') {
+      switch (field) {
+        case 'hours':
+          setHours('0');
+          break;
+        case 'minutes':
+          setMinutes('0');
+          break;
+        case 'seconds':
+          setSeconds('0');
+          break;
+      }
+      return;
+    }
+
+    // Validate input is a number
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    if (!validateTimeInput(value, field)) {
+      return;
+    }
+
+    switch (field) {
+      case 'hours':
+        setHours(value);
+        break;
+      case 'minutes':
+        setMinutes(value);
+        break;
+      case 'seconds':
+        setSeconds(value);
+        break;
+    }
+  };
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, progress }: { id: number; progress: number }) => {
       const res = await apiRequest("PATCH", `/api/currently-watching/${id}/progress`, {
@@ -97,30 +162,10 @@ export default function WatchProgress({
     const inputMinutes = parseInt(minutes || "0");
     const inputSeconds = parseInt(seconds || "0");
 
-    // Validate input values
-    if (inputMinutes >= 60 || inputSeconds >= 60) {
-      toast({
-        title: "Invalid time format",
-        description: "Minutes and seconds must be less than 60",
-        variant: "destructive",
-      });
-      return;
-    }
+    const totalInputSeconds = (inputHours * 3600) + (inputMinutes * 60) + inputSeconds;
+    const totalDurationSeconds = parseInt(details.Runtime) * 60; // Runtime is in minutes
 
-    // Validate negative values
-    if (inputHours < 0 || inputMinutes < 0 || inputSeconds < 0) {
-      toast({
-        title: "Invalid time",
-        description: "Time values cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const totalSeconds = (inputHours * 3600) + (inputMinutes * 60) + inputSeconds;
-    const totalDuration = parseInt(details.Runtime) * 60; // Runtime is in minutes
-
-    if (totalSeconds > totalDuration) {
+    if (totalInputSeconds > totalDurationSeconds) {
       toast({
         title: "Invalid time",
         description: "Entered time exceeds media duration",
@@ -129,7 +174,7 @@ export default function WatchProgress({
       return;
     }
 
-    const newProgress = Math.min(Math.round((totalSeconds / totalDuration) * 100), 100);
+    const newProgress = Math.min(Math.round((totalInputSeconds / totalDurationSeconds) * 100), 100);
     handleProgressUpdate(newProgress);
   };
 
@@ -169,32 +214,27 @@ export default function WatchProgress({
           <div className="flex gap-2">
             <div className="flex-1 space-y-1">
               <Input
-                type="number"
-                min="0"
+                type="text"
                 value={hours}
-                onChange={(e) => setHours(e.target.value)}
+                onChange={(e) => handleTimeInput(e.target.value, 'hours')}
                 placeholder="Hours"
               />
               <span className="text-xs text-muted-foreground">Hours</span>
             </div>
             <div className="flex-1 space-y-1">
               <Input
-                type="number"
-                min="0"
-                max="59"
+                type="text"
                 value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
+                onChange={(e) => handleTimeInput(e.target.value, 'minutes')}
                 placeholder="Minutes"
               />
               <span className="text-xs text-muted-foreground">Minutes</span>
             </div>
             <div className="flex-1 space-y-1">
               <Input
-                type="number"
-                min="0"
-                max="59"
+                type="text"
                 value={seconds}
-                onChange={(e) => setSeconds(e.target.value)}
+                onChange={(e) => handleTimeInput(e.target.value, 'seconds')}
                 placeholder="Seconds"
               />
               <span className="text-xs text-muted-foreground">Seconds</span>
