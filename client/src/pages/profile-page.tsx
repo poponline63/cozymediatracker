@@ -55,12 +55,11 @@ export default function ProfilePage() {
   // Transform currently watching items with proper type conversions
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
     ...item,
-    id: item.id.toString(),
     watchlistId: undefined,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    // Removed rating property
-  })) || [];
+    status: "watching"
+})) || [];
 
   // Ensure currentlyWatching is always an array
   const currentlyWatchingArray = currentlyWatching || [];
