@@ -1,17 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, User } from "lucide-react";
-import type { Watchlist } from "@shared/schema";
+import { Sparkles, PlayCircle } from "lucide-react";
+import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 import MovieGrid from "@/components/movie-grid";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Layout from "@/components/layout";
 import Recommendations from "@/components/recommendations";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useLocation } from "wouter";
 
 export default function HomePage() {
-  const { data: watchlist, isLoading } = useQuery<Watchlist[]>({
+  const [_, navigate] = useLocation();
+
+  const { data: currentlyWatching, isLoading: isLoadingCurrentlyWatching } = useQuery<CurrentlyWatching[]>({
+    queryKey: ["/api/currently-watching"],
+  });
+
+  const { data: watchlist, isLoading: isLoadingWatchlist } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
   });
 
-  const watching = watchlist?.filter((item) => item.status === "watching").map(item => ({
+  const watching = currentlyWatching?.map(item => ({
     id: item.id.toString(),
     mediaId: item.mediaId,
     title: item.title,
@@ -19,76 +26,71 @@ export default function HomePage() {
     status: "watching" as const,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined,
-    watchlistId: item.id
-  })) || [];
-
-  const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
-    id: item.id.toString(),
-    mediaId: item.mediaId,
-    title: item.title,
-    type: item.type,
-    status: "plan_to_watch" as const,
-    posterUrl: item.posterUrl || undefined,
-    progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined,
-    watchlistId: item.id
   })) || [];
 
   return (
     <Layout>
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-8">
         <div className="flex items-center gap-3">
-          <User className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-semibold">My Profile</h1>
+          <Sparkles className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-semibold">Discover</h1>
         </div>
 
-        {/* Add Recommendations section */}
+        {/* Recommendations section */}
         <Recommendations />
 
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            <h2 className="text-lg font-semibold">Your Media Progress</h2>
-          </div>
-
-          {!watchlist?.length ? (
-            <div className="bg-blue-50/10 rounded-lg p-4">
-              <p className="text-muted-foreground">
-                Add some shows or movies to start tracking!
-              </p>
+        {/* Continue Watching section */}
+        {watching.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <PlayCircle className="h-6 w-6 text-primary" />
+              <h2 className="text-lg font-semibold">Continue Watching</h2>
             </div>
-          ) : (
-            <Tabs defaultValue="watching" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="watching">
-                  Currently Watching ({watching.length})
-                </TabsTrigger>
-                <TabsTrigger value="plan_to_watch">
-                  Plan to Watch ({planToWatch.length})
-                </TabsTrigger>
-              </TabsList>
+            <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
+              <div className="flex w-max space-x-4 p-4">
+                {watching.map((item) => (
+                  <div
+                    key={item.id}
+                    className="w-[150px] cursor-pointer"
+                    onClick={() => navigate(`/profile?media=${item.mediaId}`)}
+                  >
+                    <div className="relative">
+                      <img
+                        src={item.posterUrl || ""}
+                        alt={item.title}
+                        className="w-full aspect-[2/3] rounded-lg object-cover"
+                      />
+                      {item.progress !== undefined && item.progress > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/50">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${item.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm font-medium truncate">{item.title}</p>
+                    {item.progress !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        {item.progress}% complete
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
 
-              <TabsContent value="watching" className="space-y-4">
-                <MovieGrid
-                  items={watching}
-                  isLoading={isLoading}
-                  showProgress
-                  showRemove
-                />
-              </TabsContent>
-
-              <TabsContent value="plan_to_watch" className="space-y-4">
-                <MovieGrid
-                  items={planToWatch}
-                  isLoading={isLoading}
-                  showProgress
-                  showRemove
-                />
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
+        {!watching.length && !isLoadingCurrentlyWatching && (
+          <div className="rounded-lg border p-8 text-center">
+            <h3 className="text-lg font-semibold mb-2">Welcome to Your Media Tracker!</h3>
+            <p className="text-muted-foreground mb-4">
+              Start by adding shows or movies to your watchlist to track your progress
+            </p>
+          </div>
+        )}
       </div>
     </Layout>
   );
