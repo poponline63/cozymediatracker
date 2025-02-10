@@ -167,6 +167,21 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
+  async markAsCompleted(id: number): Promise<CurrentlyWatching> {
+    const [updated] = await db
+      .update(currentlyWatching)
+      .set({
+        isCompleted: true,
+        progress: 100,
+        updatedAt: new Date()
+      })
+      .where(eq(currentlyWatching.id, id))
+      .returning();
+
+    if (!updated) throw new Error("Currently watching item not found");
+    return updated;
+  }
+
   // Watchlist operations
   async getWatchlist(userId: number): Promise<Watchlist[]> {
     return db.select().from(watchlist).where(eq(watchlist.userId, userId));
