@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Play, Pause, Square, Save } from "lucide-react";
+import { Play, Pause, Square, Save, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface WatchTimerProps {
   mediaId: string;
@@ -33,14 +34,6 @@ export default function WatchTimer({
       const endTime = new Date();
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000); // Duration in seconds
 
-      console.log('Saving watch session:', {
-        mediaId,
-        watchlistId,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        duration
-      });
-
       const response = await apiRequest("POST", "/api/watch-sessions", {
         mediaId,
         watchlistId,
@@ -57,7 +50,6 @@ export default function WatchTimer({
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate all relevant queries to update UI
       queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/statistics/watch-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
@@ -136,74 +128,86 @@ export default function WatchTimer({
     }
   };
 
-  const handleReset = () => {
-    setIsRunning(false);
+  const handleNewSession = () => {
+    if (isRunning || elapsedTime > 0) {
+      handleStop();
+    }
     setElapsedTime(0);
     setStartTime(null);
+    setIsRunning(false);
+    toast({
+      title: "New session started",
+      description: "Ready to begin tracking your watch time",
+    });
   };
 
   return (
-    <div className="space-y-4">
-      <div className="text-3xl font-mono text-center">
-        {formatTime(elapsedTime)}
-      </div>
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg">Current Session</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNewSession}
+            disabled={saveSessionMutation.isPending}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Session
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="text-3xl font-mono text-center">
+          {formatTime(elapsedTime)}
+        </div>
 
-      <div className="flex justify-center gap-2">
-        {!isRunning ? (
+        <div className="flex justify-center gap-2">
+          {!isRunning ? (
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={handleStart}
+              className="h-8 w-8"
+              title="Start"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={handlePause}
+              className="h-8 w-8"
+              title="Pause"
+            >
+              <Pause className="h-4 w-4" />
+            </Button>
+          )}
+
           <Button
             size="icon"
             variant="outline"
-            onClick={handleStart}
+            onClick={handleStop}
             className="h-8 w-8"
-            title="Start"
+            title="Stop and Save"
+            disabled={elapsedTime === 0 || saveSessionMutation.isPending}
           >
-            <Play className="h-4 w-4" />
+            <Square className="h-4 w-4" />
           </Button>
-        ) : (
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={handlePause}
-            className="h-8 w-8"
-            title="Pause"
-          >
-            <Pause className="h-4 w-4" />
-          </Button>
+        </div>
+
+        {saveSessionMutation.isPending && (
+          <p className="text-sm text-muted-foreground text-center">
+            Saving watch session...
+          </p>
         )}
-
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={handleStop}
-          className="h-8 w-8"
-          title="Stop and Save"
-          disabled={elapsedTime === 0}
-        >
-          <Square className="h-4 w-4" />
-        </Button>
-
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={handleReset}
-          className="h-8 w-8"
-          title="Reset"
-          disabled={elapsedTime === 0}
-        >
-          <Save className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {saveSessionMutation.isPending && (
-        <p className="text-sm text-muted-foreground text-center">
-          Saving watch session...
-        </p>
-      )}
-      {saveSessionMutation.isError && (
-        <p className="text-sm text-destructive text-center">
-          Failed to save watch session
-        </p>
-      )}
-    </div>
+        {saveSessionMutation.isError && (
+          <p className="text-sm text-destructive text-center">
+            Failed to save watch session
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

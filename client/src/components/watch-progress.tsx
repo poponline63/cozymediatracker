@@ -73,7 +73,7 @@ export default function WatchProgress({
       queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
       toast({
         title: "Progress updated",
-        description: type === "series" 
+        description: type === "series"
           ? `Updated to Season ${currentSeason}, Episode ${currentEpisode}`
           : "Successfully updated your watch progress",
       });
@@ -132,9 +132,11 @@ export default function WatchProgress({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Current Season</label>
+              <label className="text-sm font-medium">
+                Season {currentSeason} of {details?.totalSeasons || 1}
+              </label>
               <Select value={currentSeason} onValueChange={setCurrentSeason}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue>Season {currentSeason}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -142,7 +144,12 @@ export default function WatchProgress({
                     { length: parseInt(details?.totalSeasons || "1") },
                     (_, i) => (
                       <SelectItem key={i + 1} value={(i + 1).toString()}>
-                        Season {i + 1}
+                        <div className="flex flex-col">
+                          <div className="font-medium">Season {i + 1}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {details?.Episodes?.length || 0} episodes
+                          </div>
+                        </div>
                       </SelectItem>
                     )
                   )}
@@ -150,28 +157,50 @@ export default function WatchProgress({
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Current Episode</label>
+              <label className="text-sm font-medium">
+                Episode {currentEpisode} of {details?.Episodes?.length || 0}
+              </label>
               <Select value={currentEpisode} onValueChange={setCurrentEpisode}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue>Episode {currentEpisode}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {details?.Episodes?.map((episode: any) => (
-                    <SelectItem key={episode.Episode} value={episode.Episode.toString()}>
-                      Episode {episode.Episode} - {episode.Title}
+                    <SelectItem
+                      key={episode.Episode}
+                      value={episode.Episode.toString()}
+                    >
+                      <div className="flex flex-col">
+                        <div className="font-medium">Episode {episode.Episode}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {episode.Title}
+                        </div>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
+
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Overall Progress</span>
-              <span>{progress}%</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Season {currentSeason} Progress</span>
+                <span className="text-muted-foreground">
+                  ({progress}% Complete)
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Episode {currentEpisode}/{details?.Episodes?.length || 0}
+              </div>
             </div>
             <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-right">
+              Overall: Season {currentSeason} of {details?.totalSeasons}
+            </p>
           </div>
+
           <WatchTimer
             mediaId={mediaId}
             watchlistId={watchlistId}
@@ -197,7 +226,7 @@ export default function WatchProgress({
             </div>
             <Progress value={progress} className="h-2" />
           </div>
-          <Button 
+          <Button
             variant={progress === 100 ? "default" : "outline"}
             size="sm"
             onClick={() => handleProgressUpdate(progress === 100 ? 0 : 100)}
