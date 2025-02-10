@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Play, Pause, Square, Plus } from "lucide-react";
+import { Play, Pause, Square, Save, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,30 +11,19 @@ interface WatchTimerProps {
   watchlistId: number;
   totalDuration?: number; // in minutes
   onProgressUpdate?: (progress: number) => void;
-  isRunning?: boolean; // Added isRunning prop
 }
 
 export default function WatchTimer({ 
   mediaId, 
   watchlistId,
   totalDuration,
-  onProgressUpdate,
-  isRunning: externalIsRunning // Renamed to avoid conflict with local state
+  onProgressUpdate 
 }: WatchTimerProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [startTime, setStartTime] = useState<Date | null>(null);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const [isSliding, setIsSliding] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Sync with external running state
-  useEffect(() => {
-    if (externalIsRunning !== undefined) {
-      setIsRunning(externalIsRunning);
-    }
-  }, [externalIsRunning]);
 
   const saveSessionMutation = useMutation({
     mutationFn: async () => {
@@ -50,8 +39,7 @@ export default function WatchTimer({
         watchlistId,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        duration,
-        autoSaved: isAutoSaving
+        duration
       });
 
       if (!response.ok) {
@@ -70,7 +58,6 @@ export default function WatchTimer({
         title: "Watch session saved",
         description: `Successfully logged ${formatTime(elapsedTime)} of watch time`,
       });
-      setIsAutoSaving(false);
     },
     onError: (error: Error) => {
       console.error('Watch session save error:', error);
@@ -79,53 +66,32 @@ export default function WatchTimer({
         description: error.message,
         variant: "destructive",
       });
-      setIsAutoSaving(false);
     },
   });
-
-  // Auto-save session every 5 minutes
-  useEffect(() => {
-    let autoSaveInterval: NodeJS.Timeout;
-
-    if (isRunning && elapsedTime > 0 && !isSliding) {
-      autoSaveInterval = setInterval(() => {
-        setIsAutoSaving(true);
-        saveSessionMutation.mutate();
-      }, 5 * 60 * 1000); // 5 minutes
-    }
-
-    return () => {
-      if (autoSaveInterval) {
-        clearInterval(autoSaveInterval);
-        setIsAutoSaving(false);
-      }
-    };
-  }, [isRunning, elapsedTime, isSliding]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (isRunning && !isSliding) {
+    if (isRunning) {
       interval = setInterval(() => {
-        setElapsedTime(prev => {
-          const newTime = prev + 1;
-          // Update progress if total duration is known
-          if (totalDuration && onProgressUpdate) {
-            const progress = Math.min(
-              Math.floor((newTime / 60 / totalDuration) * 100),
-              100
-            );
-            onProgressUpdate(progress);
-          }
-          return newTime;
-        });
+        setElapsedTime(prev => prev + 1);
       }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, totalDuration, onProgressUpdate, isSliding]);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (totalDuration && onProgressUpdate) {
+      const progress = Math.min(
+        Math.floor((elapsedTime / 60 / totalDuration) * 100),
+        100
+      );
+      onProgressUpdate(progress);
+    }
+  }, [elapsedTime, totalDuration, onProgressUpdate]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -152,15 +118,12 @@ export default function WatchTimer({
     setIsRunning(false);
     if (elapsedTime > 0) {
       try {
-        setIsAutoSaving(true);
         await saveSessionMutation.mutateAsync();
         // Reset timer after successful save
         setElapsedTime(0);
         setStartTime(null);
-        setIsAutoSaving(false);
       } catch (error) {
         console.error('Failed to save watch session:', error);
-        setIsAutoSaving(false);
       }
     }
   };
@@ -178,16 +141,6 @@ export default function WatchTimer({
     });
   };
 
-  // Handle progress update from external sources (e.g., scrubbing)
-  const handleExternalProgressUpdate = useCallback((progress: number) => {
-    if (totalDuration) {
-      setIsSliding(true);
-      const newElapsedTime = Math.floor((progress / 100) * totalDuration * 60);
-      setElapsedTime(newElapsedTime);
-      setIsSliding(false);
-    }
-  }, [totalDuration]);
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -197,7 +150,7 @@ export default function WatchTimer({
             variant="outline"
             size="sm"
             onClick={handleNewSession}
-            disabled={saveSessionMutation.isPending || isAutoSaving}
+            disabled={saveSessionMutation.isPending}
           >
             <Plus className="h-4 w-4 mr-2" />
             New Session
@@ -217,10 +170,8 @@ export default function WatchTimer({
               onClick={handleStart}
               className="h-8 w-8"
               title="Start"
-              disabled={isAutoSaving || isSliding}
             >
               <Play className="h-4 w-4" />
-              <span className="sr-only">Start Timer</span>
             </Button>
           ) : (
             <Button
@@ -229,10 +180,8 @@ export default function WatchTimer({
               onClick={handlePause}
               className="h-8 w-8"
               title="Pause"
-              disabled={isAutoSaving || isSliding}
             >
               <Pause className="h-4 w-4" />
-              <span className="sr-only">Pause Timer</span>
             </Button>
           )}
 
@@ -242,15 +191,14 @@ export default function WatchTimer({
             onClick={handleStop}
             className="h-8 w-8"
             title="Stop and Save"
-            disabled={elapsedTime === 0 || saveSessionMutation.isPending || isAutoSaving || isSliding}
+            disabled={elapsedTime === 0 || saveSessionMutation.isPending}
           >
             <Square className="h-4 w-4" />
-            <span className="sr-only">Stop Timer</span>
           </Button>
         </div>
 
-        {(saveSessionMutation.isPending || isAutoSaving) && (
-          <p className="text-sm text-muted-foreground text-center animate-pulse">
+        {saveSessionMutation.isPending && (
+          <p className="text-sm text-muted-foreground text-center">
             Saving watch session...
           </p>
         )}

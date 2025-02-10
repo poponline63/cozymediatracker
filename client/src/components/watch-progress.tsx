@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Check, Loader2 } from "lucide-react";
 import WatchTimer from "./watch-timer";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -32,8 +31,6 @@ export default function WatchProgress({
   const [progress, setProgress] = useState(currentProgress);
   const [currentSeason, setCurrentSeason] = useState("1");
   const [currentEpisode, setCurrentEpisode] = useState("1");
-  const [isSliding, setIsSliding] = useState(false);
-  const [isTimerRunning, setIsTimerRunning] = useState(true);
   const { toast } = useToast();
 
   // Fetch media details to get total seasons/episodes
@@ -81,7 +78,7 @@ export default function WatchProgress({
         title: "Progress updated",
         description: type === "series"
           ? `Updated to Season ${currentSeason}, Episode ${currentEpisode}`
-          : `Progress updated to ${progress}%`,
+          : "Successfully updated your watch progress",
       });
     },
     onError: (error: Error) => {
@@ -96,7 +93,7 @@ export default function WatchProgress({
 
   // Update progress when season/episode changes for series
   useEffect(() => {
-    if (type === "series" && details?.Episodes && !isSliding) {
+    if (type === "series" && details?.Episodes) {
       const totalEpisodes = details.Episodes.length;
       const currentEpisodeNumber = parseInt(currentEpisode);
       const totalSeasons = parseInt(details.totalSeasons || "1");
@@ -107,8 +104,9 @@ export default function WatchProgress({
       const episodeProgress = (currentEpisodeNumber / totalEpisodes) * (100 / totalSeasons);
       const newProgress = Math.min(Math.round(seasonProgress + episodeProgress), 100);
 
+      setProgress(newProgress);
+
       if (newProgress !== progress) {
-        setProgress(newProgress);
         updateMutation.mutate({
           id: watchlistId,
           progress: newProgress,
@@ -117,44 +115,20 @@ export default function WatchProgress({
         });
       }
     }
-  }, [currentSeason, currentEpisode, details?.Episodes, details?.totalSeasons, type, isSliding]);
+  }, [currentSeason, currentEpisode, details?.Episodes, details?.totalSeasons, type]);
 
-  // Handle progress updates for movies and manual scrubbing
-  const handleProgressUpdate = (newProgress: number | number[]) => {
-    const updatedProgress = Array.isArray(newProgress) ? newProgress[0] : newProgress;
-    if (updatedProgress === progress) return;
+  // Handle progress updates for movies
+  const handleProgressUpdate = (newProgress: number) => {
+    if (newProgress === progress) return;
 
-    setProgress(updatedProgress);
-    if (!isSliding) {
+    setProgress(newProgress);
+    if (type !== "series") {
       updateMutation.mutate({
         id: watchlistId,
-        progress: updatedProgress,
+        progress: newProgress,
       });
     }
   };
-
-  // Handle slider interactions
-  const handleSliderChange = (value: number[]) => {
-    setIsSliding(true);
-    setProgress(value[0]);
-  };
-
-  const handleSliderCommit = (value: number[]) => {
-    setIsSliding(false);
-    updateMutation.mutate({
-      id: watchlistId,
-      progress: value[0],
-    });
-  };
-
-  // When user is dragging the slider, we should pause the timer temporarily
-  useEffect(() => {
-    if (isSliding) {
-      setIsTimerRunning(false);
-    } else {
-      setIsTimerRunning(true);
-    }
-  }, [isSliding]);
 
   if (detailsError) {
     return (
@@ -258,16 +232,7 @@ export default function WatchProgress({
                 Episode {currentEpisode}/{details?.Episodes?.length || 0}
               </div>
             </div>
-            <Slider
-              defaultValue={[progress]}
-              max={100}
-              step={1}
-              onValueChange={handleSliderChange}
-              onValueCommit={handleSliderCommit}
-              onPointerDown={() => setIsSliding(true)}
-              onPointerUp={() => setIsSliding(false)}
-              className="mt-2"
-            />
+            <Progress value={progress} className="h-2" />
             <p className="text-xs text-muted-foreground text-right">
               Overall: Season {currentSeason} of {details?.totalSeasons}
             </p>
@@ -278,7 +243,6 @@ export default function WatchProgress({
             watchlistId={watchlistId}
             totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
             onProgressUpdate={handleProgressUpdate}
-            isRunning={isTimerRunning}
           />
         </CardContent>
       </Card>
@@ -291,25 +255,17 @@ export default function WatchProgress({
         <CardTitle className="text-lg">Track Your Progress</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Progress</span>
-            <span>{progress}%</span>
+        <div className="flex gap-4 items-center">
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Progress</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Slider
-            defaultValue={[progress]}
-            max={100}
-            step={1}
-            onValueChange={handleSliderChange}
-            onValueCommit={handleSliderCommit}
-            onPointerDown={() => setIsSliding(true)}
-            onPointerUp={() => setIsSliding(false)}
-            className="mt-2"
-          />
           <Button
             variant={progress === 100 ? "default" : "outline"}
             size="sm"
-            className="w-full mt-2"
             onClick={() => handleProgressUpdate(progress === 100 ? 0 : 100)}
             disabled={updateMutation.isPending}
           >
@@ -321,13 +277,11 @@ export default function WatchProgress({
             {progress === 100 ? "Completed" : "Mark Complete"}
           </Button>
         </div>
-
         <WatchTimer
           mediaId={mediaId}
           watchlistId={watchlistId}
           totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
           onProgressUpdate={handleProgressUpdate}
-          isRunning={isTimerRunning}
         />
       </CardContent>
     </Card>

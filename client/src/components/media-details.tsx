@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Loader2, Star, History, Clock, Calendar } from "lucide-react";
 import { useState } from "react";
@@ -21,7 +20,6 @@ interface WatchSession {
   startTime: string;
   duration: number;
   title: string;
-  autoSaved?: boolean;
 }
 
 interface MediaDetailsProps {
@@ -104,12 +102,6 @@ export default function MediaDetails({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl h-[80vh]">
-        <DialogHeader>
-          <DialogTitle className="sr-only">Media Details</DialogTitle>
-          <DialogDescription className="sr-only">
-            View and manage your watch progress
-          </DialogDescription>
-        </DialogHeader>
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -188,7 +180,7 @@ export default function MediaDetails({
                           <CardTitle className="text-lg">Watch History</CardTitle>
                           {sessions && (
                             <div className="text-sm text-muted-foreground">
-                              Total: {formatDuration(totalWatchTime)}
+                              Total: {formatDuration(sessions.reduce((total, session) => total + session.duration, 0))}
                             </div>
                           )}
                         </CardHeader>
@@ -208,9 +200,6 @@ export default function MediaDetails({
                                     <div className="font-medium flex items-center gap-2">
                                       <Calendar className="h-4 w-4" />
                                       {format(new Date(session.startTime), 'MMM d, yyyy')}
-                                      {session.autoSaved && (
-                                        <span className="text-xs text-muted-foreground">(Auto-saved)</span>
-                                      )}
                                     </div>
                                     <p className="text-sm text-muted-foreground">
                                       Started at {format(new Date(session.startTime), 'h:mm a')}
