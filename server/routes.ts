@@ -350,14 +350,15 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      // Get user's completed items
+      // Get user's completed items to base recommendations on
       const completedItems = await storage.getCompletedMedia(req.user!.id);
 
-      // Get recommended items based on completion patterns
-      const recommendations = await storage.getRecommendations(
-        req.user!.id,
-        []  // We'll implement genre-based recommendations in a future update
-      );
+      // For now, return a simple list of popular items not in user's lists
+      const recommendations = await storage.getRecommendations(req.user!.id);
+
+      if (!recommendations.length) {
+        return res.json([]);  // Return empty array if no recommendations
+      }
 
       res.json(recommendations);
     } catch (error) {

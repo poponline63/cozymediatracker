@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Clock } from "lucide-react";
+import { Clock, Eye } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -40,6 +40,36 @@ export default function MovieGrid({
 
   const { data: watchlist } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
+  });
+
+  // Start watching mutation
+  const startWatchingMutation = useMutation({
+    mutationFn: async (watchlistId: number) => {
+      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistId}`, {
+        status: "watching",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to start watching");
+      }
+      return res.json();
+    },
+    onSuccess: (_, watchlistId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      const item = items.find(item => item.watchlistId === watchlistId);
+      toast({
+        title: "Started watching",
+        description: `${item?.title} has been moved to your currently watching list`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Move to watchlist mutation
@@ -120,6 +150,19 @@ export default function MovieGrid({
               />
             </div>
 
+            {/* Button to start watching from watchlist */}
+            {watchlistItem && item.status === "plan_to_watch" && (
+              <Button
+                className="w-full"
+                size="sm"
+                variant="secondary"
+                onClick={() => startWatchingMutation.mutate(watchlistItem.id)}
+                disabled={startWatchingMutation.isPending}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Start Watching
+              </Button>
+            )}
             {item.status === "watching" && (
               <Button
                 className="w-full"

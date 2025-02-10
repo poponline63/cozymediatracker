@@ -86,6 +86,34 @@ export default function MediaCard({
     },
   });
 
+  const moveToWatchingMutation = useMutation({
+    mutationFn: async (watchlistId: number) => {
+      const res = await apiRequest("PATCH", `/api/watchlist/${watchlistId}`, {
+        status: "watching",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to move to currently watching");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/watchlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/currently-watching"] });
+      toast({
+        title: "Started watching",
+        description: `${title} has been moved to your currently watching list`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <Card className="overflow-hidden group relative">
       <CardContent className="p-0">
@@ -98,7 +126,7 @@ export default function MediaCard({
           <h3 className="font-semibold truncate">{title}</h3>
           <p className="text-sm text-muted-foreground capitalize">{type}</p>
 
-          {showProgress && status === "watching" && (
+          {showProgress && progress !== undefined && (
             <WatchProgress
               watchlistId={watchlistId!}
               mediaId={id}
@@ -107,7 +135,6 @@ export default function MediaCard({
             />
           )}
 
-          {/* Rating Stars */}
           {!showRemove && (
             <div className="flex items-center gap-1 mt-2">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -120,7 +147,7 @@ export default function MediaCard({
                     e.stopPropagation();
                     //rateMutation.mutate({ mediaId: id, rating: star });
                   }}
-                  disabled={false} //rateMutation.isPending}
+                  disabled={false}
                 >
                   <Star
                     className={`h-4 w-4 ${
@@ -158,7 +185,7 @@ export default function MediaCard({
                         mediaId: id,
                         title,
                         type,
-                        posterUrl,
+                        posterUrl: posterUrl || null,
                         status: "plan_to_watch",
                       });
                     }}
@@ -171,32 +198,23 @@ export default function MediaCard({
                     )}
                     Add to Watchlist
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addMutation.mutate({
-                        mediaId: id,
-                        title,
-                        type,
-                        posterUrl,
-                        status: "watching",
-                      });
-                    }}
-                    disabled={addMutation.isPending}
-                  >
-                    {addMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Eye className="h-4 w-4 mr-2" />
-                    )}
-                    Currently Watching
-                  </Button>
                 </>
               )}
             </div>
+          )}
+
+          {status === "plan_to_watch" && watchlistId && !showAddToList && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full mt-2"
+              asChild
+            >
+              <Link href="/profile" className="flex items-center justify-center">
+                <User className="h-4 w-4 mr-2" />
+                View in Profile
+              </Link>
+            </Button>
           )}
         </div>
 

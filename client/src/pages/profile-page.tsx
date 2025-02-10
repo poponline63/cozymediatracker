@@ -55,20 +55,24 @@ export default function ProfilePage() {
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
 
-  // Ensure we're explicitly setting the status and converting id to string
+  // Transform watchlist items with proper type conversions
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
     ...item,
-    id: item.id.toString(), // Convert id to string
-    status: "plan_to_watch", // Explicitly set status
-    posterUrl: item.posterUrl || undefined // Convert null to undefined
+    id: item.id.toString(),
+    status: "plan_to_watch",
+    posterUrl: item.posterUrl || undefined,
+    progress: item.progress ?? undefined,
+    rating: item.rating ?? undefined // Convert null to undefined for rating
   })) || [];
 
-  // Transform currently watching items to match MovieGridItem type
+  // Transform currently watching items with proper type conversions
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
     ...item,
-    id: item.id.toString(), // Convert id to string
-    watchlistId: undefined, // Explicitly set as undefined since it's from currently watching
-    posterUrl: item.posterUrl || undefined // Convert null to undefined
+    id: item.id.toString(),
+    watchlistId: undefined,
+    posterUrl: item.posterUrl || undefined,
+    progress: item.progress ?? undefined,
+    rating: item.rating ?? undefined // Convert null to undefined for rating
   })) || [];
 
   // Statistics queries

@@ -37,7 +37,7 @@ export interface IStorage {
   stopWatching(id: number): Promise<void>;
   getCurrentlyWatchingItem(id: number): Promise<CurrentlyWatching | undefined>;
   getCompletedMedia(userId: number): Promise<CurrentlyWatching[]>;
-  getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]>;
+  getRecommendations(userId: number): Promise<any[]>;
 
   // Watchlist operations
   getWatchlist(userId: number): Promise<Watchlist[]>;
@@ -186,47 +186,49 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(currentlyWatching.updatedAt));
   }
 
-  async getRecommendations(userId: number, preferredGenres: string[]): Promise<any[]> {
-    // Get user's existing media IDs to exclude them
-    const existingMediaIds = await db
-      .select({ mediaId: currentlyWatching.mediaId })
-      .from(currentlyWatching)
-      .where(eq(currentlyWatching.userId, userId));
+  async getRecommendations(userId: number): Promise<any[]> {
+    try {
+      // Get user's existing media IDs to exclude
+      const existingMediaIds = await db
+        .select({ mediaId: currentlyWatching.mediaId })
+        .from(currentlyWatching)
+        .where(eq(currentlyWatching.userId, userId));
 
-    const watchlistMediaIds = await db
-      .select({ mediaId: watchlist.mediaId })
-      .from(watchlist)
-      .where(eq(watchlist.userId, userId));
+      const watchlistMediaIds = await db
+        .select({ mediaId: watchlist.mediaId })
+        .from(watchlist)
+        .where(eq(watchlist.userId, userId));
 
-    const excludeMediaIds = [...existingMediaIds, ...watchlistMediaIds].map(
-      (item) => item.mediaId
-    );
+      const excludeMediaIds = [...existingMediaIds, ...watchlistMediaIds].map(
+        (item) => item.mediaId
+      );
 
-    // Get recommendations based on other users who completed similar media
-    const recommendations = await db
-      .select({
-        mediaId: currentlyWatching.mediaId,
-        title: currentlyWatching.title,
-        type: currentlyWatching.type,
-        posterUrl: currentlyWatching.posterUrl,
-      })
-      .from(currentlyWatching)
-      .where(
-        and(
-          sql`${currentlyWatching.mediaId} NOT IN (${sql.join(excludeMediaIds)})`,
-          eq(currentlyWatching.isCompleted, true)
+      // Get recommendations based on other users who completed similar media
+      const recommendations = await db
+        .select({
+          mediaId: currentlyWatching.mediaId,
+          title: currentlyWatching.title,
+          type: currentlyWatching.type,
+          posterUrl: currentlyWatching.posterUrl,
+        })
+        .from(currentlyWatching)
+        .where(
+          sql`${currentlyWatching.mediaId} NOT IN (${sql`${excludeMediaIds.join(', ')}`})`
         )
-      )
-      .groupBy(
-        currentlyWatching.mediaId,
-        currentlyWatching.title,
-        currentlyWatching.type,
-        currentlyWatching.posterUrl
-      )
-      .orderBy(sql`count(*) desc`)
-      .limit(10);
+        .groupBy(
+          currentlyWatching.mediaId,
+          currentlyWatching.title,
+          currentlyWatching.type,
+          currentlyWatching.posterUrl
+        )
+        .orderBy(sql`count(*) desc`)
+        .limit(10);
 
-    return recommendations;
+      return recommendations;
+    } catch (error) {
+      console.error('Error generating recommendations:', error);
+      return [];
+    }
   }
 
 
