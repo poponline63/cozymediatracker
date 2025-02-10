@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import type { Watchlist, CurrentlyWatching, User } from "@shared/schema";
-import { Settings2 } from "lucide-react";
+import { Settings2, ChartPie } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import MediaDetails from "@/components/media-details";
@@ -25,6 +25,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage() {
   const { data: watchlist, isLoading: isLoadingWatchlist } = useQuery<Watchlist[]>({
@@ -41,8 +43,8 @@ export default function ProfilePage() {
 
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
+  const [showCompletionChart, setShowCompletionChart] = useState(false);
 
-  // Transform watchlist items with proper type conversions
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
     id: item.id.toString(),
     mediaId: item.mediaId,
@@ -55,7 +57,6 @@ export default function ProfilePage() {
     watchlistId: item.id
   })) || [];
 
-  // Transform currently watching items with proper type conversions
   const currentlyWatchingItems = currentlyWatching?.map(item => ({
     id: item.id.toString(),
     mediaId: item.mediaId,
@@ -67,10 +68,49 @@ export default function ProfilePage() {
     watchlistId: undefined,
   })) || [];
 
+  const completionStats = watchlist?.reduce(
+    (acc, item) => {
+      // For series, consider it completed if we've watched all episodes of the last season
+      const isCompleted = item.type === "series"
+        ? item.currentSeason === item.totalSeasons && item.progress === 100
+        : item.progress === 100;
+
+      if (isCompleted) {
+        acc.completed += 1;
+      } else if (item.progress > 0) {
+        acc.incomplete += 1;
+      }
+      return acc;
+    },
+    { completed: 0, incomplete: 0 }
+  ) || { completed: 0, incomplete: 0 };
+
+  const completionData = [
+    { name: "Completed", value: completionStats.completed, color: "hsl(var(--primary))" },
+    { name: "In Progress", value: completionStats.incomplete, color: "hsl(var(--muted))" },
+  ];
+
+  if (!watchlist && isLoadingWatchlist) {
+    return (
+      <Layout>
+        <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-16 w-16 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="max-w-screen-2xl mx-auto px-4 space-y-8">
-        {/* User Profile Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
@@ -84,34 +124,104 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
-          <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Settings2 className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Update Profile</DialogTitle>
-                <DialogDescription>
-                  Make changes to your profile here. Click save when you're done.
-                </DialogDescription>
-              </DialogHeader>
-              {user && (
-                <UpdateProfileForm
-                  defaultValues={{
-                    username: user.username,
-                    avatarUrl: user.avatarUrl || '',
-                  }}
-                  onSuccess={() => setIsUpdateProfileOpen(false)}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCompletionChart(!showCompletionChart)}
+              className="gap-2"
+            >
+              <ChartPie className="h-4 w-4" />
+              {showCompletionChart ? "Hide Stats" : "Show Stats"}
+            </Button>
+            <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Update Profile</DialogTitle>
+                  <DialogDescription>
+                    Make changes to your profile here. Click save when you're done.
+                  </DialogDescription>
+                </DialogHeader>
+                {user && (
+                  <UpdateProfileForm
+                    defaultValues={{
+                      username: user.username,
+                      avatarUrl: user.avatarUrl || '',
+                    }}
+                    onSuccess={() => setIsUpdateProfileOpen(false)}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        {/* Currently Watching Section */}
+        {showCompletionChart && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Media Completion Status</CardTitle>
+              <CardDescription>
+                Overview of your completed and in-progress media
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={completionData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={120}
+                      innerRadius={60}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, percent }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                    >
+                      {completionData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          className="stroke-background"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--background))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-4 mt-4">
+                {completionData.map((entry, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {entry.name} ({entry.value})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div>
           <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
@@ -135,7 +245,6 @@ export default function ProfilePage() {
           </ScrollArea>
         </div>
 
-        {/* Watchlist Tabs Section */}
         <div>
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
@@ -169,7 +278,6 @@ export default function ProfilePage() {
           </Tabs>
         </div>
 
-        {/* Media Details Dialog */}
         {selectedMediaId && (
           <MediaDetails
             mediaId={selectedMediaId}

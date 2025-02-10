@@ -11,8 +11,29 @@ export default function HomePage() {
     queryKey: ["/api/watchlist"],
   });
 
-  const watching = watchlist?.filter((item) => item.status === "watching") || [];
-  const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch") || [];
+  const watching = watchlist?.filter((item) => item.status === "watching").map(item => ({
+    id: item.id.toString(),
+    mediaId: item.mediaId,
+    title: item.title,
+    type: item.type,
+    status: "watching" as const,
+    posterUrl: item.posterUrl || undefined,
+    progress: item.progress ?? undefined,
+    rating: item.rating ?? undefined,
+    watchlistId: item.id
+  })) || [];
+
+  const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
+    id: item.id.toString(),
+    mediaId: item.mediaId,
+    title: item.title,
+    type: item.type,
+    status: "plan_to_watch" as const,
+    posterUrl: item.posterUrl || undefined,
+    progress: item.progress ?? undefined,
+    rating: item.rating ?? undefined,
+    watchlistId: item.id
+  })) || [];
 
   return (
     <Layout>

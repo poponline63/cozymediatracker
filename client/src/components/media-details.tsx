@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import SeriesProgress from "./series-progress";
 
 interface WatchSession {
   id: number;
@@ -157,6 +158,18 @@ export default function MediaDetails({
                       currentProgress={watching.watchingItem.progress}
                       type={details.Type}
                     />
+                    {details.Type === "series" && (
+                      <div className="mt-4">
+                        <h3 className="text-lg font-semibold mb-4">Series Progress</h3>
+                        <SeriesProgress
+                          watchlistId={watching.watchingItem.id}
+                          mediaId={mediaId}
+                          currentSeason={watching.watchingItem.currentSeason}
+                          currentEpisode={watching.watchingItem.currentEpisode}
+                          totalSeasons={parseInt(details.totalSeasons) || 1}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold flex items-center gap-2">

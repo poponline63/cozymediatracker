@@ -3,6 +3,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Eye } from "lucide-react";
+import { useLocation } from "wouter";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -37,12 +38,12 @@ export default function MovieGrid({
   onItemClick,
 }: MovieGridProps) {
   const { toast } = useToast();
+  const [_, navigate] = useLocation();
 
   const { data: watchlist } = useQuery<Watchlist[]>({
     queryKey: ["/api/watchlist"],
   });
 
-  // Move to watchlist mutation
   const moveToWatchlistMutation = useMutation({
     mutationFn: async (currentlyWatchingId: number) => {
       if (!currentlyWatchingId || isNaN(currentlyWatchingId)) {
@@ -84,7 +85,6 @@ export default function MovieGrid({
     },
   });
 
-  // Start watching mutation
   const startWatchingMutation = useMutation({
     mutationFn: async (watchlistId: number) => {
       const res = await apiRequest("PATCH", `/api/watchlist/${watchlistId}`, {
@@ -104,6 +104,7 @@ export default function MovieGrid({
         title: "Started watching",
         description: `${item?.title} has been moved to your currently watching list`,
       });
+      navigate("/profile");
     },
     onError: (error: Error) => {
       toast({
