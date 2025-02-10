@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, Eye } from "lucide-react";
+import { Clock, Eye, CheckCircle } from "lucide-react";
 import MediaCard from "./media-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Watchlist } from "@shared/schema";
@@ -17,6 +17,7 @@ interface MovieGridItem {
   status?: string;
   rating?: number;
   watchlistId?: number;
+  isCompleted?: boolean;
 }
 
 interface MovieGridProps {
@@ -146,7 +147,7 @@ export default function MovieGrid({
         return (
           <div key={item.id} className="space-y-2">
             <div
-              className="cursor-pointer"
+              className="cursor-pointer relative"
               onClick={() => onItemClick?.(item.mediaId)}
             >
               <MediaCard
@@ -161,7 +162,13 @@ export default function MovieGrid({
                 watchlistId={watchlistItem?.id}
                 status={item.status}
                 rating={item.rating}
+                isCompleted={item.isCompleted} // Added isCompleted prop to MediaCard
               />
+              {item.isCompleted && (
+                <div className="absolute top-2 right-2 bg-background/80 rounded-full p-1">
+                  <CheckCircle className="w-5 h-5 text-primary" />
+                </div>
+              )}
             </div>
 
             {/* Show "Start Watching" button in profile/watchlist view */}
@@ -178,7 +185,7 @@ export default function MovieGrid({
               </Button>
             )}
             {/* Show "Move to Watchlist" button for currently watching items */}
-            {item.status === "watching" && (
+            {item.status === "watching" && !item.isCompleted && (
               <Button
                 className="w-full"
                 size="sm"

@@ -7,6 +7,8 @@ import { Settings2 } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import MediaDetails from "@/components/media-details";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -41,6 +43,7 @@ export default function ProfilePage() {
 
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Transform watchlist items with proper type conversions
   const planToWatch = watchlist?.filter((item) => item.status === "plan_to_watch").map(item => ({
@@ -65,7 +68,13 @@ export default function ProfilePage() {
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
     watchlistId: undefined,
+    isCompleted: item.isCompleted,
   })) || [];
+
+  // Filter items based on completion status
+  const filteredCurrentlyWatching = currentlyWatchingItems.filter(
+    item => showCompleted ? item.isCompleted : !item.isCompleted
+  );
 
   return (
     <Layout>
@@ -111,12 +120,26 @@ export default function ProfilePage() {
           </Dialog>
         </div>
 
-        {/* Currently Watching Section */}
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Currently Watching</h2>
+        {/* Currently Watching Section with Toggle */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              {showCompleted ? "Completed Media" : "Currently Watching"}
+            </h2>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="show-completed"
+                checked={showCompleted}
+                onCheckedChange={setShowCompleted}
+              />
+              <Label htmlFor="show-completed">
+                {showCompleted ? "Show Completed" : "Show In Progress"}
+              </Label>
+            </div>
+          </div>
           <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
             <div className="flex w-max space-x-4 p-4">
-              {currentlyWatchingItems.map((item) => (
+              {filteredCurrentlyWatching.map((item) => (
                 <div
                   key={item.id}
                   className="w-[150px] cursor-pointer"
@@ -128,6 +151,11 @@ export default function ProfilePage() {
                     className="w-full aspect-[2/3] rounded-lg object-cover"
                   />
                   <p className="mt-2 text-sm font-medium truncate">{item.title}</p>
+                  {item.progress && (
+                    <p className="text-xs text-muted-foreground">
+                      Progress: {item.progress}%
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -140,7 +168,7 @@ export default function ProfilePage() {
           <Tabs defaultValue="watching" className="space-y-4">
             <TabsList>
               <TabsTrigger value="watching">
-                Currently Watching ({currentlyWatchingItems.length})
+                Currently Watching ({filteredCurrentlyWatching.length})
               </TabsTrigger>
               <TabsTrigger value="plan_to_watch">
                 Plan to Watch ({planToWatch.length})
@@ -149,7 +177,7 @@ export default function ProfilePage() {
 
             <TabsContent value="watching" className="space-y-4">
               <MovieGrid
-                items={currentlyWatchingItems}
+                items={filteredCurrentlyWatching}
                 isLoading={isLoadingCurrentlyWatching}
                 showProgress
                 showRemove
