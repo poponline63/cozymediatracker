@@ -59,7 +59,7 @@ export default function ProfilePage() {
     watchlistId: undefined,
     posterUrl: item.posterUrl || undefined,
     progress: item.progress ?? undefined,
-    rating: item.rating ?? undefined
+    // Removed rating property
   })) || [];
 
   // Ensure currentlyWatching is always an array
