@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Star, History, Clock } from "lucide-react";
+import { Loader2, Star, History, Clock, Calendar } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -13,6 +13,7 @@ import WatchProgress from "./watch-progress";
 import WatchTimer from "./watch-timer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
 
 interface WatchSession {
   id: number;
@@ -39,6 +40,7 @@ export default function MediaDetails({
   const [currentSeason, setCurrentSeason] = useState("1");
   const [showHistory, setShowHistory] = useState(false);
 
+  // Query for media details
   const { data: details, isLoading } = useQuery({
     queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
@@ -53,20 +55,31 @@ export default function MediaDetails({
   });
 
   // Query for currently watching status
-  const { data: watching } = useQuery({
+  const { data: watching, isError: watchingError } = useQuery({
     queryKey: ["/api/currently-watching", mediaId],
     queryFn: async () => {
       const res = await fetch(`/api/currently-watching/${mediaId}`);
+      if (res.status === 401) {
+        return null; // Handle unauthorized state
+      }
       if (!res.ok) throw new Error('Failed to fetch watching status');
       return res.json();
     },
     enabled: isOpen && !!mediaId,
   });
 
-  // Query for recent watch sessions
-  const { data: sessions } = useQuery<WatchSession[]>({
-    queryKey: ["/api/statistics/watch-sessions"],
-    enabled: isOpen && showHistory,
+  // Query for recent watch sessions with enhanced stats
+  const { data: sessions, isError: sessionsError } = useQuery<WatchSession[]>({
+    queryKey: ["/api/statistics/watch-sessions", mediaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/statistics/watch-sessions?mediaId=${mediaId}`);
+      if (res.status === 401) {
+        return null; // Handle unauthorized state
+      }
+      if (!res.ok) throw new Error('Failed to fetch watch sessions');
+      return res.json();
+    },
+    enabled: isOpen && showHistory && !!watching?.watchingItem,
   });
 
   const formatDuration = (duration: number) => {
@@ -82,6 +95,9 @@ export default function MediaDetails({
     }
     return `${seconds}s`;
   };
+
+  // Calculate total watch time from sessions
+  const totalWatchTime = sessions?.reduce((total, session) => total + session.duration, 0) || 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -142,46 +158,67 @@ export default function MediaDetails({
                       </Button>
                     </div>
 
-                    <WatchTimer
-                      mediaId={mediaId}
-                      watchlistId={watching.watchingItem.id}
-                      totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
-                      onProgressUpdate={(progress) => {
-                        // Progress update will be handled by WatchProgress component
-                      }}
-                    />
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Current Session</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <WatchTimer
+                          mediaId={mediaId}
+                          watchlistId={watching.watchingItem.id}
+                          totalDuration={details?.Runtime ? parseInt(details.Runtime) : undefined}
+                          onProgressUpdate={(progress) => {
+                            // Progress update will be handled by WatchProgress component
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
 
-                    {showHistory && sessions && sessions.length > 0 && (
+                    {showHistory && (
                       <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg">Recent History</CardTitle>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-lg">Watch History</CardTitle>
+                          {sessions && (
+                            <div className="text-sm text-muted-foreground">
+                              Total: {formatDuration(sessions.reduce((total, session) => total + session.duration, 0))}
+                            </div>
+                          )}
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          {sessions.slice(0, 5).map((session) => (
-                            <div
-                              key={session.id}
-                              className="flex justify-between items-center p-2 rounded-lg border bg-card/50"
-                            >
-                              <div className="space-y-1">
-                                <p className="font-medium">
-                                  {new Date(session.startTime).toLocaleDateString(undefined, {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {new Date(session.startTime).toLocaleTimeString(undefined, {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </p>
-                              </div>
-                              <span className="text-sm font-medium">
-                                {formatDuration(session.duration)}
-                              </span>
+                          {sessionsError ? (
+                            <div className="text-center text-muted-foreground py-4">
+                              Failed to load watch history
                             </div>
-                          ))}
+                          ) : sessions && sessions.length > 0 ? (
+                            sessions.map((session) => (
+                              <div
+                                key={session.id}
+                                className="flex flex-col gap-2 p-3 rounded-lg border bg-card/50"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-1">
+                                    <div className="font-medium flex items-center gap-2">
+                                      <Calendar className="h-4 w-4" />
+                                      {format(new Date(session.startTime), 'MMM d, yyyy')}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                      Started at {format(new Date(session.startTime), 'h:mm a')}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium">
+                                      {formatDuration(session.duration)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center text-muted-foreground py-4">
+                              No watch history available
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     )}
@@ -246,7 +283,6 @@ export default function MediaDetails({
                 </div>
               </div>
 
-              {/* Episodes List Section */}
               {details.Type === "series" && details.Episodes && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Episodes</h3>

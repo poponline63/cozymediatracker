@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import WatchTimer from "./watch-timer";
 import {
   Select,
@@ -34,10 +34,13 @@ export default function WatchProgress({
   const { toast } = useToast();
 
   // Fetch media details to get total seasons/episodes
-  const { data: details } = useQuery({
+  const { data: details, isError: detailsError } = useQuery({
     queryKey: ["/api/media", mediaId, currentSeason],
     queryFn: async () => {
       const res = await fetch(`/api/media/${mediaId}?season=${currentSeason}`);
+      if (res.status === 401) {
+        throw new Error('Authentication required');
+      }
       if (!res.ok) throw new Error('Failed to fetch episodes');
       return res.json();
     },
@@ -103,17 +106,21 @@ export default function WatchProgress({
 
       setProgress(newProgress);
 
-      updateMutation.mutate({
-        id: watchlistId,
-        progress: newProgress,
-        season: currentSeason,
-        episode: currentEpisode,
-      });
+      if (newProgress !== progress) {
+        updateMutation.mutate({
+          id: watchlistId,
+          progress: newProgress,
+          season: currentSeason,
+          episode: currentEpisode,
+        });
+      }
     }
   }, [currentSeason, currentEpisode, details?.Episodes, details?.totalSeasons, type]);
 
   // Handle progress updates for movies
   const handleProgressUpdate = (newProgress: number) => {
+    if (newProgress === progress) return;
+
     setProgress(newProgress);
     if (type !== "series") {
       updateMutation.mutate({
@@ -122,6 +129,18 @@ export default function WatchProgress({
       });
     }
   };
+
+  if (detailsError) {
+    return (
+      <Card className="mt-4">
+        <CardContent className="py-4">
+          <div className="text-center text-muted-foreground">
+            Failed to load media details. Please try again.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (type === "series") {
     return (
@@ -137,7 +156,16 @@ export default function WatchProgress({
               </label>
               <Select value={currentSeason} onValueChange={setCurrentSeason}>
                 <SelectTrigger className="w-full">
-                  <SelectValue>Season {currentSeason}</SelectValue>
+                  <SelectValue placeholder="Loading...">
+                    {updateMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </div>
+                    ) : (
+                      `Season ${currentSeason}`
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {Array.from(
@@ -162,7 +190,16 @@ export default function WatchProgress({
               </label>
               <Select value={currentEpisode} onValueChange={setCurrentEpisode}>
                 <SelectTrigger className="w-full">
-                  <SelectValue>Episode {currentEpisode}</SelectValue>
+                  <SelectValue placeholder="Loading...">
+                    {updateMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </div>
+                    ) : (
+                      `Episode ${currentEpisode}`
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {details?.Episodes?.map((episode: any) => (
@@ -230,8 +267,13 @@ export default function WatchProgress({
             variant={progress === 100 ? "default" : "outline"}
             size="sm"
             onClick={() => handleProgressUpdate(progress === 100 ? 0 : 100)}
+            disabled={updateMutation.isPending}
           >
-            <Check className={`h-4 w-4 mr-2 ${progress === 100 ? "text-primary-foreground" : ""}`} />
+            {updateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Check className={`h-4 w-4 mr-2 ${progress === 100 ? "text-primary-foreground" : ""}`} />
+            )}
             {progress === 100 ? "Completed" : "Mark Complete"}
           </Button>
         </div>
