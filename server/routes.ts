@@ -5,6 +5,11 @@ import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/sc
 import { logActivity, checkAndAwardAchievements } from "./activity-helper";
 
 export function registerRoutes(app: Express): Server {
+  // Health check — used by Railway deployment healthcheck
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true });
+  });
+
   // Add the profile update route
   app.patch("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
