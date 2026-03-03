@@ -7,6 +7,11 @@ import {
   customLists,
   customListItems,
   friendships,
+  activities,
+  activityLikes,
+  activityComments,
+  userAchievements,
+  watchGoals,
   type User,
   type InsertUser,
   type Watchlist,
@@ -19,6 +24,11 @@ import {
   type CustomList,
   type CustomListItem,
   type Friendship,
+  type Activity,
+  type ActivityLike,
+  type ActivityComment,
+  type UserAchievement,
+  type WatchGoal,
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -104,6 +114,30 @@ export interface IStorage {
   getCustomListItems(listId: number): Promise<CustomListItem[]>;
   addItemToCustomList(listId: number, item: { mediaId: string; title: string; type: string; posterUrl?: string }): Promise<CustomListItem>;
   removeItemFromCustomList(listId: number, mediaId: string): Promise<void>;
+
+  // Activity Feed
+  createActivity(userId: number, data: Omit<Activity, 'id' | 'userId' | 'createdAt'>): Promise<Activity>;
+  getFeedActivities(userId: number, limit?: number): Promise<(Activity & { user: Pick<User,'id'|'username'|'avatarUrl'>; likeCount: number; commentCount: number; likedByMe: boolean })[]>;
+  getMyActivities(userId: number, limit?: number): Promise<Activity[]>;
+  toggleActivityLike(activityId: number, userId: number): Promise<{ liked: boolean; count: number }>;
+  getActivityComments(activityId: number): Promise<(ActivityComment & { user: Pick<User,'id'|'username'|'avatarUrl'> })[]>;
+  addActivityComment(activityId: number, userId: number, body: string): Promise<ActivityComment>;
+  deleteActivityComment(commentId: number, userId: number): Promise<void>;
+
+  // Achievements
+  getUserAchievements(userId: number): Promise<UserAchievement[]>;
+  awardAchievement(userId: number, key: string): Promise<UserAchievement | null>;
+
+  // Watch Goals
+  getWatchGoals(userId: number): Promise<WatchGoal[]>;
+  setWatchGoal(userId: number, data: { type: string; target: number; year: number }): Promise<WatchGoal>;
+  deleteWatchGoal(goalId: number, userId: number): Promise<void>;
+
+  // Watch Streak
+  getWatchStreak(userId: number): Promise<number>;
+
+  // Taste match
+  getTasteMatch(userId: number, friendId: number): Promise<number>;
 
   // Friends
   sendFriendRequest(requesterId: number, receiverId: number): Promise<Friendship>;
@@ -646,6 +680,152 @@ export class DatabaseStorage implements IStorage {
           sql`(${friendships.requesterId} = ${userId} OR ${friendships.receiverId} = ${userId})`
         )
       );
+  }
+
+  // ---- Activity Feed ----
+
+  async createActivity(userId: number, data: Omit<Activity, 'id' | 'userId' | 'createdAt'>): Promise<Activity> {
+    const [activity] = await db.insert(activities).values({ userId, ...data }).returning();
+    return activity;
+  }
+
+  async getFeedActivities(userId: number, limit = 40): Promise<(Activity & { user: Pick<User,'id'|'username'|'avatarUrl'>; likeCount: number; commentCount: number; likedByMe: boolean })[]> {
+    // Get friend ids
+    const friendRows = await db
+      .select({ friendId: sql<number>`CASE WHEN ${friendships.requesterId} = ${userId} THEN ${friendships.receiverId} ELSE ${friendships.requesterId} END` })
+      .from(friendships)
+      .where(and(eq(friendships.status, 'accepted'), sql`(${friendships.requesterId} = ${userId} OR ${friendships.receiverId} = ${userId})`));
+    const friendIds = [userId, ...friendRows.map(r => r.friendId)];
+
+    const rows = await db
+      .select({
+        activity: activities,
+        user: { id: users.id, username: users.username, avatarUrl: users.avatarUrl },
+        likeCount: sql<number>`(SELECT COUNT(*) FROM activity_likes WHERE activity_id = ${activities.id})`,
+        commentCount: sql<number>`(SELECT COUNT(*) FROM activity_comments WHERE activity_id = ${activities.id})`,
+        likedByMe: sql<boolean>`EXISTS(SELECT 1 FROM activity_likes WHERE activity_id = ${activities.id} AND user_id = ${userId})`,
+      })
+      .from(activities)
+      .innerJoin(users, eq(users.id, activities.userId))
+      .where(sql`${activities.userId} = ANY(ARRAY[${sql.join(friendIds.map(id => sql`${id}`), sql`, `)}]::int[])`)
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
+
+    return rows.map(r => ({ ...r.activity, user: r.user, likeCount: Number(r.likeCount), commentCount: Number(r.commentCount), likedByMe: Boolean(r.likedByMe) }));
+  }
+
+  async getMyActivities(userId: number, limit = 20): Promise<Activity[]> {
+    return db.select().from(activities).where(eq(activities.userId, userId)).orderBy(desc(activities.createdAt)).limit(limit);
+  }
+
+  async toggleActivityLike(activityId: number, userId: number): Promise<{ liked: boolean; count: number }> {
+    const [existing] = await db.select().from(activityLikes).where(and(eq(activityLikes.activityId, activityId), eq(activityLikes.userId, userId)));
+    if (existing) {
+      await db.delete(activityLikes).where(eq(activityLikes.id, existing.id));
+    } else {
+      await db.insert(activityLikes).values({ activityId, userId });
+    }
+    const [{ count }] = await db.select({ count: sql<number>`COUNT(*)` }).from(activityLikes).where(eq(activityLikes.activityId, activityId));
+    return { liked: !existing, count: Number(count) };
+  }
+
+  async getActivityComments(activityId: number): Promise<(ActivityComment & { user: Pick<User,'id'|'username'|'avatarUrl'> })[]> {
+    const rows = await db
+      .select({ comment: activityComments, user: { id: users.id, username: users.username, avatarUrl: users.avatarUrl } })
+      .from(activityComments)
+      .innerJoin(users, eq(users.id, activityComments.userId))
+      .where(eq(activityComments.activityId, activityId))
+      .orderBy(activityComments.createdAt);
+    return rows.map(r => ({ ...r.comment, user: r.user }));
+  }
+
+  async addActivityComment(activityId: number, userId: number, body: string): Promise<ActivityComment> {
+    const [comment] = await db.insert(activityComments).values({ activityId, userId, body }).returning();
+    return comment;
+  }
+
+  async deleteActivityComment(commentId: number, userId: number): Promise<void> {
+    await db.delete(activityComments).where(and(eq(activityComments.id, commentId), eq(activityComments.userId, userId)));
+  }
+
+  // ---- Achievements ----
+
+  async getUserAchievements(userId: number): Promise<UserAchievement[]> {
+    return db.select().from(userAchievements).where(eq(userAchievements.userId, userId)).orderBy(userAchievements.earnedAt);
+  }
+
+  async awardAchievement(userId: number, key: string): Promise<UserAchievement | null> {
+    const [existing] = await db.select().from(userAchievements).where(and(eq(userAchievements.userId, userId), eq(userAchievements.achievementKey, key)));
+    if (existing) return null;
+    const [created] = await db.insert(userAchievements).values({ userId, achievementKey: key }).returning();
+    return created;
+  }
+
+  // ---- Watch Goals ----
+
+  async getWatchGoals(userId: number): Promise<WatchGoal[]> {
+    return db.select().from(watchGoals).where(eq(watchGoals.userId, userId));
+  }
+
+  async setWatchGoal(userId: number, data: { type: string; target: number; year: number }): Promise<WatchGoal> {
+    const [existing] = await db.select().from(watchGoals).where(and(eq(watchGoals.userId, userId), eq(watchGoals.type, data.type), eq(watchGoals.year, data.year)));
+    if (existing) {
+      const [updated] = await db.update(watchGoals).set({ target: data.target }).where(eq(watchGoals.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(watchGoals).values({ userId, ...data }).returning();
+    return created;
+  }
+
+  async deleteWatchGoal(goalId: number, userId: number): Promise<void> {
+    await db.delete(watchGoals).where(and(eq(watchGoals.id, goalId), eq(watchGoals.userId, userId)));
+  }
+
+  // ---- Watch Streak ----
+
+  async getWatchStreak(userId: number): Promise<number> {
+    const sessions = await db
+      .select({ date: sql<string>`DATE(${watchSessions.startTime})` })
+      .from(watchSessions)
+      .where(eq(watchSessions.userId, userId))
+      .orderBy(desc(watchSessions.startTime));
+
+    const days = Array.from(new Set(sessions.map(s => s.date)));
+    if (!days.length) return 0;
+
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < days.length; i++) {
+      const d = new Date(days[i]);
+      const expected = new Date(today);
+      expected.setDate(today.getDate() - i);
+      if (d.toDateString() === expected.toDateString()) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  // ---- Taste Match ----
+
+  async getTasteMatch(userId: number, friendId: number): Promise<number> {
+    const myCompleted = await db.select({ mediaId: watchlist.mediaId }).from(watchlist)
+      .where(and(eq(watchlist.userId, userId), eq(watchlist.status, 'completed')));
+    const friendCompleted = await db.select({ mediaId: watchlist.mediaId }).from(watchlist)
+      .where(and(eq(watchlist.userId, friendId), eq(watchlist.status, 'completed')));
+
+    const myIds = new Set(myCompleted.map(r => r.mediaId));
+    const friendIds = new Set(friendCompleted.map(r => r.mediaId));
+    if (!myIds.size || !friendIds.size) return 0;
+
+    const myArr = Array.from(myIds);
+    const shared = myArr.filter(id => friendIds.has(id)).length;
+    const union = new Set([...Array.from(myIds), ...Array.from(friendIds)]).size;
+    return Math.round((shared / union) * 100);
   }
 }
 

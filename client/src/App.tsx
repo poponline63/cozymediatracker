@@ -5,8 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import HomePage from "./pages/home-page";
 import SearchPage from "./pages/search-page";
 import FriendsPage from "./pages/friends-page";
+import FeedPage from "./pages/feed-page";
+import AchievementsPage from "./pages/achievements-page";
 import StatisticsPage from "./pages/statistics-page";
 import ProfilePage from "./pages/profile-page";
+import CustomListsPage from "./pages/custom-lists-page";
 import NotFound from "./pages/not-found";
 import AuthPage from "./pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -24,7 +27,10 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <ProtectedRoute path="/" component={HomePage} />
         <ProtectedRoute path="/search" component={SearchPage} />
+        <ProtectedRoute path="/feed" component={FeedPage} />
         <ProtectedRoute path="/friends" component={FriendsPage} />
+        <ProtectedRoute path="/lists" component={CustomListsPage} />
+        <ProtectedRoute path="/achievements" component={AchievementsPage} />
         <ProtectedRoute path="/statistics" component={StatisticsPage} />
         <ProtectedRoute path="/profile" component={ProfilePage} />
         <Route component={NotFound} />

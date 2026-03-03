@@ -140,6 +140,53 @@ export const customListItems = pgTable("custom_list_items", {
   addedAt: timestamp("added_at").notNull().defaultNow(),
 });
 
+// Activity feed
+export const activities = pgTable("activities", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  type: text("type").notNull(), // started_watching, completed, rated, added_to_list, added_to_watchlist
+  mediaId: text("media_id"),
+  mediaTitle: text("media_title"),
+  mediaType: text("media_type"), // movie, series
+  posterUrl: text("poster_url"),
+  metadata: jsonb("metadata").default({}), // rating value, list name, episode info etc
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const activityLikes = pgTable("activity_likes", {
+  id: serial("id").primaryKey(),
+  activityId: integer("activity_id").notNull(),
+  userId: integer("user_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const activityComments = pgTable("activity_comments", {
+  id: serial("id").primaryKey(),
+  activityId: integer("activity_id").notNull(),
+  userId: integer("user_id").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Achievements
+export const userAchievements = pgTable("user_achievements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  achievementKey: text("achievement_key").notNull(), // e.g. "first_movie", "binge_watcher"
+  earnedAt: timestamp("earned_at").notNull().defaultNow(),
+});
+
+// Watch goals
+export const watchGoals = pgTable("watch_goals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  type: text("type").notNull(), // movies, series, total
+  target: integer("target").notNull(),
+  year: integer("year").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Friends / social table
 export const friendships = pgTable("friendships", {
   id: serial("id").primaryKey(),
@@ -186,3 +233,13 @@ export type CustomListItem = typeof customListItems.$inferSelect;
 export type InsertCustomListItem = z.infer<typeof insertCustomListItemSchema>;
 export type Friendship = typeof friendships.$inferSelect;
 export type InsertFriendship = z.infer<typeof insertFriendshipSchema>;
+export type Activity = typeof activities.$inferSelect;
+export type ActivityLike = typeof activityLikes.$inferSelect;
+export type ActivityComment = typeof activityComments.$inferSelect;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type WatchGoal = typeof watchGoals.$inferSelect;
+
+// Insert schemas for new tables
+export const insertActivitySchema = createInsertSchema(activities).omit({ id: true, createdAt: true });
+export const insertActivityCommentSchema = createInsertSchema(activityComments).omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export const insertWatchGoalSchema = createInsertSchema(watchGoals).omit({ id: true, userId: true, createdAt: true });

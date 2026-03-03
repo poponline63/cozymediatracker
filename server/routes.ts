@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertWatchlistSchema, insertCurrentlyWatchingSchema } from "@shared/schema";
+import { logActivity, checkAndAwardAchievements } from "./activity-helper";
 
 export function registerRoutes(app: Express): Server {
   // Add the profile update route
@@ -70,6 +71,10 @@ export function registerRoutes(app: Express): Server {
       await storage.removeFromWatchlist(existingWatchlist.id);
     }
 
+    // Log activity + achievements (non-blocking)
+    logActivity(req.user!.id, "started_watching", { mediaId: item.mediaId, mediaTitle: item.title, mediaType: item.type, posterUrl: item.posterUrl ?? undefined });
+    checkAndAwardAchievements(req.user!.id, { type: "started_watching" }).catch(() => {});
+
     res.status(201).json(item);
   });
 
@@ -102,6 +107,14 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const item = await storage.markAsCompleted(parseInt(req.params.id));
+
+      // Log activity + check achievements (non-blocking)
+      logActivity(req.user!.id, "completed", { mediaId: item.mediaId, mediaTitle: item.title, mediaType: item.type, posterUrl: item.posterUrl ?? undefined });
+      storage.getWatchlist(req.user!.id).then(wl => {
+        const completedCount = wl.filter(i => i.status === 'completed').length;
+        checkAndAwardAchievements(req.user!.id, { type: "completed", totalCompleted: completedCount + 1 }).catch(() => {});
+      }).catch(() => {});
+
       res.json(item);
     } catch (error) {
       res.status(404).json({ message: "Currently watching item not found" });
@@ -403,6 +416,8 @@ export function registerRoutes(app: Express): Server {
       }
 
       const ratingItem = await storage.upsertRating(req.user!.id, mediaId, rating);
+      logActivity(req.user!.id, "rated", { mediaId }, { rating });
+      checkAndAwardAchievements(req.user!.id, { type: "rated", rating }).catch(() => {});
       res.json(ratingItem);
     } catch (error) {
       console.error("Error rating media:", error);
@@ -580,6 +595,152 @@ export function registerRoutes(app: Express): Server {
       res.sendStatus(204);
     } catch (error) {
       res.status(500).json({ message: "Failed to remove friend" });
+    }
+  });
+
+  // ---- Activity Feed Routes ----
+
+  app.get("/api/feed", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const feed = await storage.getFeedActivities(req.user!.id);
+      res.json(feed);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load feed" });
+    }
+  });
+
+  app.get("/api/feed/me", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const activities = await storage.getMyActivities(req.user!.id);
+      res.json(activities);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load activities" });
+    }
+  });
+
+  app.post("/api/feed/:id/like", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const result = await storage.toggleActivityLike(Number(req.params.id), req.user!.id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle like" });
+    }
+  });
+
+  app.get("/api/feed/:id/comments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const comments = await storage.getActivityComments(Number(req.params.id));
+      res.json(comments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load comments" });
+    }
+  });
+
+  app.post("/api/feed/:id/comments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { body } = req.body;
+    if (!body?.trim()) return res.status(400).json({ message: "Comment cannot be empty" });
+    try {
+      const comment = await storage.addActivityComment(Number(req.params.id), req.user!.id, body.trim());
+      res.json(comment);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to post comment" });
+    }
+  });
+
+  app.delete("/api/feed/comments/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.deleteActivityComment(Number(req.params.id), req.user!.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete comment" });
+    }
+  });
+
+  // ---- Achievements Routes ----
+
+  app.get("/api/achievements", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const earned = await storage.getUserAchievements(req.user!.id);
+      res.json(earned);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load achievements" });
+    }
+  });
+
+  // ---- Watch Goals Routes ----
+
+  app.get("/api/goals", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const goals = await storage.getWatchGoals(req.user!.id);
+      res.json(goals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load goals" });
+    }
+  });
+
+  app.post("/api/goals", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { type, target, year } = req.body;
+    if (!type || !target || !year) return res.status(400).json({ message: "type, target and year are required" });
+    try {
+      const goal = await storage.setWatchGoal(req.user!.id, { type, target: Number(target), year: Number(year) });
+      res.json(goal);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to set goal" });
+    }
+  });
+
+  app.delete("/api/goals/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.deleteWatchGoal(Number(req.params.id), req.user!.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete goal" });
+    }
+  });
+
+  // ---- Fun Routes ----
+
+  app.get("/api/streak", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const streak = await storage.getWatchStreak(req.user!.id);
+      res.json({ streak });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get streak" });
+    }
+  });
+
+  app.get("/api/friends/:id/taste-match", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const match = await storage.getTasteMatch(req.user!.id, Number(req.params.id));
+      res.json({ match });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to calculate taste match" });
+    }
+  });
+
+  // Random watchlist picker
+  app.get("/api/watchlist/random", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const items = await storage.getWatchlist(req.user!.id);
+      const planned = items.filter(i => i.status === 'plan_to_watch');
+      if (!planned.length) return res.json(null);
+      const pick = planned[Math.floor(Math.random() * planned.length)];
+      res.json(pick);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to pick random item" });
     }
   });
 
