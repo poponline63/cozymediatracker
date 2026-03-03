@@ -445,6 +445,144 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ---- Custom Lists Routes ----
+
+  app.get("/api/custom-lists", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const lists = await storage.getCustomLists(req.user!.id);
+      res.json(lists);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch lists" });
+    }
+  });
+
+  app.post("/api/custom-lists", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { name, description, isPublic } = req.body;
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ message: "List name is required" });
+    }
+    try {
+      const list = await storage.createCustomList(req.user!.id, { name, description, isPublic });
+      res.json(list);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create list" });
+    }
+  });
+
+  app.delete("/api/custom-lists/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.deleteCustomList(req.user!.id, Number(req.params.id));
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete list" });
+    }
+  });
+
+  app.get("/api/custom-lists/:id/items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const items = await storage.getCustomListItems(Number(req.params.id));
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch list items" });
+    }
+  });
+
+  app.post("/api/custom-lists/:id/items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { mediaId, title, type, posterUrl } = req.body;
+    if (!mediaId || !title || !type) {
+      return res.status(400).json({ message: "mediaId, title, and type are required" });
+    }
+    try {
+      const item = await storage.addItemToCustomList(Number(req.params.id), { mediaId, title, type, posterUrl });
+      res.json(item);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add item to list" });
+    }
+  });
+
+  app.delete("/api/custom-lists/:id/items/:mediaId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.removeItemFromCustomList(Number(req.params.id), req.params.mediaId);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove item from list" });
+    }
+  });
+
+  // ---- Friends Routes ----
+
+  app.post("/api/friends/request", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ message: "Username is required" });
+    try {
+      const target = await storage.getUserByUsername(username);
+      if (!target) return res.status(404).json({ message: "User not found" });
+      if (target.id === req.user!.id) return res.status(400).json({ message: "You can't add yourself" });
+      const friendship = await storage.sendFriendRequest(req.user!.id, target.id);
+      res.json(friendship);
+    } catch (error: any) {
+      if (error.code === "23505") return res.status(400).json({ message: "Friend request already sent" });
+      res.status(500).json({ message: "Failed to send friend request" });
+    }
+  });
+
+  app.get("/api/friends", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const friends = await storage.getFriends(req.user!.id);
+      res.json(friends.map(({ password: _, ...f }) => f));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch friends" });
+    }
+  });
+
+  app.get("/api/friends/requests", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const requests = await storage.getPendingFriendRequests(req.user!.id);
+      res.json(requests.map(r => ({ ...r, requester: { ...r.requester, password: undefined } })));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch friend requests" });
+    }
+  });
+
+  app.patch("/api/friends/:id/accept", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const friendship = await storage.acceptFriendRequest(Number(req.params.id), req.user!.id);
+      res.json(friendship);
+    } catch (error: any) {
+      res.status(error.message === "Friend request not found" ? 404 : 500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/friends/:id/reject", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.rejectFriendRequest(Number(req.params.id), req.user!.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reject request" });
+    }
+  });
+
+  app.delete("/api/friends/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      await storage.removeFriend(Number(req.params.id), req.user!.id);
+      res.sendStatus(204);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove friend" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

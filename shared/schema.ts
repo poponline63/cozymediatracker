@@ -119,6 +119,56 @@ export const insertRatingSchema = createInsertSchema(ratings).omit({
   updatedAt: true,
 });
 
+// Custom Lists tables
+export const customLists = pgTable("custom_lists", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isPublic: boolean("is_public").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const customListItems = pgTable("custom_list_items", {
+  id: serial("id").primaryKey(),
+  listId: integer("list_id").notNull(),
+  mediaId: text("media_id").notNull(),
+  title: text("title").notNull(),
+  type: text("type").notNull(),
+  posterUrl: text("poster_url"),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+});
+
+// Friends / social table
+export const friendships = pgTable("friendships", {
+  id: serial("id").primaryKey(),
+  requesterId: integer("requester_id").notNull(),
+  receiverId: integer("receiver_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Schemas for new tables
+export const insertCustomListSchema = createInsertSchema(customLists).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomListItemSchema = createInsertSchema(customListItems).omit({
+  id: true,
+  addedAt: true,
+});
+
+export const insertFriendshipSchema = createInsertSchema(friendships).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -130,3 +180,9 @@ export type WatchSession = typeof watchSessions.$inferSelect;
 export type InsertWatchSession = z.infer<typeof insertWatchSessionSchema>;
 export type Rating = typeof ratings.$inferSelect;
 export type InsertRating = z.infer<typeof insertRatingSchema>;
+export type CustomList = typeof customLists.$inferSelect;
+export type InsertCustomList = z.infer<typeof insertCustomListSchema>;
+export type CustomListItem = typeof customListItems.$inferSelect;
+export type InsertCustomListItem = z.infer<typeof insertCustomListItemSchema>;
+export type Friendship = typeof friendships.$inferSelect;
+export type InsertFriendship = z.infer<typeof insertFriendshipSchema>;

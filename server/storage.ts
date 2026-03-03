@@ -4,6 +4,9 @@ import {
   currentlyWatching,
   watchSessions,
   ratings,
+  customLists,
+  customListItems,
+  friendships,
   type User,
   type InsertUser,
   type Watchlist,
@@ -12,7 +15,10 @@ import {
   type InsertCurrentlyWatching,
   type WatchSession,
   type InsertWatchSession,
-  type Rating
+  type Rating,
+  type CustomList,
+  type CustomListItem,
+  type Friendship,
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -90,6 +96,22 @@ export interface IStorage {
   upsertRating(userId: number, mediaId: string, rating: number): Promise<Rating>;
   getRatingsByMediaIds(userId: number, mediaIds: string[]): Promise<Rating[]>;
   deleteRating(userId: number, mediaId: string): Promise<void>;
+
+  // Custom Lists
+  getCustomLists(userId: number): Promise<CustomList[]>;
+  createCustomList(userId: number, data: { name: string; description?: string; isPublic?: boolean }): Promise<CustomList>;
+  deleteCustomList(userId: number, listId: number): Promise<void>;
+  getCustomListItems(listId: number): Promise<CustomListItem[]>;
+  addItemToCustomList(listId: number, item: { mediaId: string; title: string; type: string; posterUrl?: string }): Promise<CustomListItem>;
+  removeItemFromCustomList(listId: number, mediaId: string): Promise<void>;
+
+  // Friends
+  sendFriendRequest(requesterId: number, receiverId: number): Promise<Friendship>;
+  getFriends(userId: number): Promise<(User & { friendshipId: number })[]>;
+  getPendingFriendRequests(userId: number): Promise<(Friendship & { requester: User })[]>;
+  acceptFriendRequest(friendshipId: number, userId: number): Promise<Friendship>;
+  rejectFriendRequest(friendshipId: number, userId: number): Promise<void>;
+  removeFriend(friendshipId: number, userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -341,27 +363,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentWatchSessions(userId: number, mediaId?: string) {
-    let query = db
+    const baseSelect = db
       .select({
         id: watchSessions.id,
         startTime: sql<string>`to_char(${watchSessions.startTime}, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
-        duration: sql<number>`COALESCE(${watchSessions.duration}, 0)`, // Ensure duration is never null
+        duration: sql<number>`COALESCE(${watchSessions.duration}, 0)`,
         title: currentlyWatching.title,
       })
       .from(watchSessions)
       .innerJoin(
         currentlyWatching,
         eq(watchSessions.watchlistId, currentlyWatching.id)
-      )
+      );
+
+    if (mediaId) {
+      return baseSelect
+        .where(and(eq(watchSessions.userId, userId), eq(currentlyWatching.mediaId, mediaId)))
+        .orderBy(desc(watchSessions.startTime))
+        .limit(10);
+    }
+
+    return baseSelect
       .where(eq(watchSessions.userId, userId))
       .orderBy(desc(watchSessions.startTime))
       .limit(10);
-
-    if (mediaId) {
-      query = query.where(eq(currentlyWatching.mediaId, mediaId));
-    }
-
-    return query;
   }
 
   async markAsCompleted(id: number): Promise<CurrentlyWatching> {
@@ -472,6 +497,153 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(ratings.userId, userId),
           eq(ratings.mediaId, mediaId)
+        )
+      );
+  }
+
+  // ---- Custom Lists ----
+
+  async getCustomLists(userId: number): Promise<CustomList[]> {
+    return db
+      .select()
+      .from(customLists)
+      .where(eq(customLists.userId, userId))
+      .orderBy(desc(customLists.createdAt));
+  }
+
+  async createCustomList(
+    userId: number,
+    data: { name: string; description?: string; isPublic?: boolean }
+  ): Promise<CustomList> {
+    const [list] = await db
+      .insert(customLists)
+      .values({ userId, name: data.name, description: data.description, isPublic: data.isPublic ?? false })
+      .returning();
+    return list;
+  }
+
+  async deleteCustomList(userId: number, listId: number): Promise<void> {
+    // Delete items first
+    await db.delete(customListItems).where(eq(customListItems.listId, listId));
+    await db
+      .delete(customLists)
+      .where(and(eq(customLists.id, listId), eq(customLists.userId, userId)));
+  }
+
+  async getCustomListItems(listId: number): Promise<CustomListItem[]> {
+    return db
+      .select()
+      .from(customListItems)
+      .where(eq(customListItems.listId, listId))
+      .orderBy(desc(customListItems.addedAt));
+  }
+
+  async addItemToCustomList(
+    listId: number,
+    item: { mediaId: string; title: string; type: string; posterUrl?: string }
+  ): Promise<CustomListItem> {
+    const [created] = await db
+      .insert(customListItems)
+      .values({ listId, ...item })
+      .returning();
+    return created;
+  }
+
+  async removeItemFromCustomList(listId: number, mediaId: string): Promise<void> {
+    await db
+      .delete(customListItems)
+      .where(and(eq(customListItems.listId, listId), eq(customListItems.mediaId, mediaId)));
+  }
+
+  // ---- Friends ----
+
+  async sendFriendRequest(requesterId: number, receiverId: number): Promise<Friendship> {
+    const [friendship] = await db
+      .insert(friendships)
+      .values({ requesterId, receiverId, status: "pending" })
+      .returning();
+    return friendship;
+  }
+
+  async getFriends(userId: number): Promise<(User & { friendshipId: number })[]> {
+    const rows = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        password: users.password,
+        avatarUrl: users.avatarUrl,
+        preferences: users.preferences,
+        createdAt: users.createdAt,
+        friendshipId: friendships.id,
+      })
+      .from(friendships)
+      .innerJoin(
+        users,
+        sql`(${friendships.requesterId} = ${userId} AND ${users.id} = ${friendships.receiverId})
+         OR (${friendships.receiverId} = ${userId} AND ${users.id} = ${friendships.requesterId})`
+      )
+      .where(
+        and(
+          eq(friendships.status, "accepted"),
+          sql`(${friendships.requesterId} = ${userId} OR ${friendships.receiverId} = ${userId})`
+        )
+      );
+    return rows;
+  }
+
+  async getPendingFriendRequests(userId: number): Promise<(Friendship & { requester: User })[]> {
+    const rows = await db
+      .select({
+        id: friendships.id,
+        requesterId: friendships.requesterId,
+        receiverId: friendships.receiverId,
+        status: friendships.status,
+        createdAt: friendships.createdAt,
+        updatedAt: friendships.updatedAt,
+        requester: {
+          id: users.id,
+          username: users.username,
+          password: users.password,
+          avatarUrl: users.avatarUrl,
+          preferences: users.preferences,
+          createdAt: users.createdAt,
+        },
+      })
+      .from(friendships)
+      .innerJoin(users, eq(users.id, friendships.requesterId))
+      .where(
+        and(
+          eq(friendships.receiverId, userId),
+          eq(friendships.status, "pending")
+        )
+      );
+    return rows as (Friendship & { requester: User })[];
+  }
+
+  async acceptFriendRequest(friendshipId: number, userId: number): Promise<Friendship> {
+    const [updated] = await db
+      .update(friendships)
+      .set({ status: "accepted", updatedAt: new Date() })
+      .where(and(eq(friendships.id, friendshipId), eq(friendships.receiverId, userId)))
+      .returning();
+    if (!updated) throw new Error("Friend request not found");
+    return updated;
+  }
+
+  async rejectFriendRequest(friendshipId: number, userId: number): Promise<void> {
+    await db
+      .update(friendships)
+      .set({ status: "rejected", updatedAt: new Date() })
+      .where(and(eq(friendships.id, friendshipId), eq(friendships.receiverId, userId)));
+  }
+
+  async removeFriend(friendshipId: number, userId: number): Promise<void> {
+    await db
+      .delete(friendships)
+      .where(
+        and(
+          eq(friendships.id, friendshipId),
+          sql`(${friendships.requesterId} = ${userId} OR ${friendships.receiverId} = ${userId})`
         )
       );
   }
