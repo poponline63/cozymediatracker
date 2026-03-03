@@ -14,12 +14,22 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull(),
   password: text("password").notNull(),
+  email: text("email"),
+  emailVerified: boolean("email_verified").notNull().default(false),
   avatarUrl: text("avatar_url"),
   preferences: jsonb("preferences").default({
     theme: 'system',
     viewMode: 'grid',
     notifications: true
   }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -86,8 +96,13 @@ export const ratings = pgTable("ratings", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
+  emailVerified: true,
   avatarUrl: true,
   preferences: true,
+}).extend({
+  email: z.string().email("Must be a valid email").optional(),
+  emailVerified: z.boolean().optional(),
 });
 
 export const insertCurrentlyWatchingSchema = createInsertSchema(currentlyWatching).omit({
@@ -233,6 +248,7 @@ export type CustomListItem = typeof customListItems.$inferSelect;
 export type InsertCustomListItem = z.infer<typeof insertCustomListItemSchema>;
 export type Friendship = typeof friendships.$inferSelect;
 export type InsertFriendship = z.infer<typeof insertFriendshipSchema>;
+export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type ActivityLike = typeof activityLikes.$inferSelect;
 export type ActivityComment = typeof activityComments.$inferSelect;

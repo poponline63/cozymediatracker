@@ -1,14 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
-import { Sparkles, PlayCircle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Sparkles, PlayCircle, MailCheck } from "lucide-react";
 import type { Watchlist, CurrentlyWatching } from "@shared/schema";
 import MovieGrid from "@/components/movie-grid";
 import Layout from "@/components/layout";
 import Recommendations from "@/components/recommendations";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const [_, navigate] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const { data: currentlyWatching, isLoading: isLoadingCurrentlyWatching } = useQuery<CurrentlyWatching[]>({
     queryKey: ["/api/currently-watching"],
@@ -28,9 +35,28 @@ export default function HomePage() {
     progress: item.progress ?? undefined,
   })) || [];
 
+  const resendMutation = useMutation({
+    mutationFn: async () => { const r = await apiRequest("POST", "/api/resend-verification", {}); return r.json(); },
+    onSuccess: () => toast({ title: "Verification email sent!" }),
+  });
+
+  const showVerifyBanner = user && user.email && !user.emailVerified;
+
   return (
     <Layout>
       <div className="p-4 space-y-8">
+        {showVerifyBanner && (
+          <Alert className="border-yellow-500/40 bg-yellow-950/20">
+            <MailCheck className="h-4 w-4 text-yellow-400" />
+            <AlertDescription className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-yellow-200 text-sm">Please verify your email address: <strong>{user.email}</strong></span>
+              <Button size="sm" variant="outline" className="text-xs border-yellow-500/40 text-yellow-300 hover:bg-yellow-950/40"
+                onClick={() => resendMutation.mutate()} disabled={resendMutation.isPending}>
+                {resendMutation.isPending ? "Sending…" : "Resend email"}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex items-center gap-3">
           <Sparkles className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-semibold">Discover</h1>

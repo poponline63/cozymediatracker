@@ -12,6 +12,7 @@ import {
   activityComments,
   userAchievements,
   watchGoals,
+  emailVerificationTokens,
   type User,
   type InsertUser,
   type Watchlist,
@@ -29,6 +30,7 @@ import {
   type ActivityComment,
   type UserAchievement,
   type WatchGoal,
+  type EmailVerificationToken,
 } from "@shared/schema";
 import session from "express-session";
 import { db } from "./db";
@@ -114,6 +116,13 @@ export interface IStorage {
   getCustomListItems(listId: number): Promise<CustomListItem[]>;
   addItemToCustomList(listId: number, item: { mediaId: string; title: string; type: string; posterUrl?: string }): Promise<CustomListItem>;
   removeItemFromCustomList(listId: number, mediaId: string): Promise<void>;
+
+  // Email Verification
+  createVerificationToken(userId: number, token: string, expiresAt: Date): Promise<EmailVerificationToken>;
+  getVerificationToken(token: string): Promise<EmailVerificationToken | undefined>;
+  deleteVerificationToken(id: number): Promise<void>;
+  markEmailVerified(userId: number): Promise<void>;
+  getUserByEmail(email: string): Promise<User | undefined>;
 
   // Activity Feed
   createActivity(userId: number, data: Omit<Activity, 'id' | 'userId' | 'createdAt'>): Promise<Activity>;
@@ -605,6 +614,8 @@ export class DatabaseStorage implements IStorage {
         id: users.id,
         username: users.username,
         password: users.password,
+        email: users.email,
+        emailVerified: users.emailVerified,
         avatarUrl: users.avatarUrl,
         preferences: users.preferences,
         createdAt: users.createdAt,
@@ -638,6 +649,8 @@ export class DatabaseStorage implements IStorage {
           id: users.id,
           username: users.username,
           password: users.password,
+          email: users.email,
+          emailVerified: users.emailVerified,
           avatarUrl: users.avatarUrl,
           preferences: users.preferences,
           createdAt: users.createdAt,
@@ -680,6 +693,31 @@ export class DatabaseStorage implements IStorage {
           sql`(${friendships.requesterId} = ${userId} OR ${friendships.receiverId} = ${userId})`
         )
       );
+  }
+
+  // ---- Email Verification ----
+
+  async createVerificationToken(userId: number, token: string, expiresAt: Date): Promise<EmailVerificationToken> {
+    const [row] = await db.insert(emailVerificationTokens).values({ userId, token, expiresAt }).returning();
+    return row;
+  }
+
+  async getVerificationToken(token: string): Promise<EmailVerificationToken | undefined> {
+    const [row] = await db.select().from(emailVerificationTokens).where(eq(emailVerificationTokens.token, token));
+    return row;
+  }
+
+  async deleteVerificationToken(id: number): Promise<void> {
+    await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.id, id));
+  }
+
+  async markEmailVerified(userId: number): Promise<void> {
+    await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   // ---- Activity Feed ----

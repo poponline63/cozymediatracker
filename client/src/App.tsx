@@ -25,6 +25,7 @@ function Router() {
     <div className="min-h-screen bg-background">
       <Switch>
         <Route path="/auth" component={AuthPage} />
+        {/* /verify-email is handled by the server — redirect handled there */}
         <ProtectedRoute path="/" component={HomePage} />
         <ProtectedRoute path="/search" component={SearchPage} />
         <ProtectedRoute path="/feed" component={FeedPage} />
