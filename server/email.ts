@@ -1,16 +1,24 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
 const APP_URL = process.env.APP_URL ?? "http://localhost:5000";
 const APP_NAME = "CozyWatch";
+
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function sendVerificationEmail(
   toEmail: string,
   username: string,
   token: string
 ): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("RESEND_API_KEY not set — skipping verification email");
+    return;
+  }
   const verifyUrl = `${APP_URL}/verify-email?token=${token}`;
 
   await resend.emails.send({
