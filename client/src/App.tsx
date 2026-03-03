@@ -10,6 +10,7 @@ import AchievementsPage from "./pages/achievements-page";
 import StatisticsPage from "./pages/statistics-page";
 import ProfilePage from "./pages/profile-page";
 import CustomListsPage from "./pages/custom-lists-page";
+import LandingPage from "./pages/landing-page";
 import NotFound from "./pages/not-found";
 import AuthPage from "./pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -24,6 +25,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-background">
       <Switch>
+        <Route path="/landing" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
         {/* /verify-email is handled by the server — redirect handled there */}
         <ProtectedRoute path="/" component={HomePage} />
